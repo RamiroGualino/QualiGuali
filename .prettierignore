@@ -1,0 +1,9 @@
+node_modules
+coverage
+dist
+pnpm-lock.yaml
+
+# Docs provided by the user — not generated/owned by this codebase's tooling.
+QualiGuali_Arquitectura_v1.2.md
+QualiGuali_Roadmap_Implementacion.md
+PROMPT_CLAUDE_CODE_PARTE*.md

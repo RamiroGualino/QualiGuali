@@ -1,0 +1,26 @@
+{
+  "name": "@qualiguali/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Utilidades, constantes, config de lint/format y esquema base de eventos de dominio compartidos entre servicios de QualiGuali.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./eslint-config": "./eslint-config/index.js",
+    "./prettier-config": "./prettier-config/index.js"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@aws-sdk/client-sns": "^3.1094.0",
+    "cors": "^2.8.6",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "express": "^5.2.1",
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
+  }
+}

@@ -1,0 +1,256 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: qualiguali-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - qualiguali-mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: qualiguali-auth-service
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      # Single shared MongoDB instance/database ("qualiguali") per AD-002 —
+      # every future service will point at this same URI.
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      LOGIN_RATE_LIMIT_WINDOW_MS: ${LOGIN_RATE_LIMIT_WINDOW_MS:-900000}
+      LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-10}
+      SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME:-Super Admin}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+      PROJECTS_SERVICE_URL: http://projects-service:4001
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      projects-service:
+        condition: service_started
+
+  projects-service:
+    build:
+      context: .
+      dockerfile: services/projects-service/Dockerfile
+    container_name: qualiguali-projects-service
+    restart: unless-stopped
+    ports:
+      - '4001:4001'
+    environment:
+      NODE_ENV: development
+      PORT: 4001
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  qa-core-service:
+    build:
+      context: .
+      dockerfile: services/qa-core-service/Dockerfile
+    container_name: qualiguali-qa-core-service
+    restart: unless-stopped
+    ports:
+      - '4002:4002'
+    environment:
+      NODE_ENV: development
+      PORT: 4002
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      PROJECTS_SERVICE_URL: http://projects-service:4001
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      projects-service:
+        condition: service_started
+
+  minio:
+    image: minio/minio
+    container_name: qualiguali-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - '9000:9000' # S3 API
+      - '9001:9001' # Web console
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+    volumes:
+      - qualiguali-minio-data:/data
+
+  # Simulates SNS/SQS locally (Arquitectura v1.0 §6.4) so services can
+  # publish/consume domain events without real AWS. LocalStack always uses
+  # account id 000000000000, so the topic ARN / queue URL below are stable
+  # and don't need to be discovered dynamically.
+  localstack:
+    image: localstack/localstack:3
+    container_name: qualiguali-localstack
+    restart: unless-stopped
+    ports:
+      - '4566:4566'
+    environment:
+      SERVICES: sns,sqs
+      DEFAULT_REGION: us-east-1
+    volumes:
+      - ./infra/localstack-init.sh:/etc/localstack/init/ready.d/init.sh
+      - qualiguali-localstack-data:/var/lib/localstack
+
+  execution-service:
+    build:
+      context: .
+      dockerfile: services/execution-service/Dockerfile
+    container_name: qualiguali-execution-service
+    restart: unless-stopped
+    ports:
+      - '4003:4003'
+    environment:
+      NODE_ENV: development
+      PORT: 4003
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      QA_CORE_SERVICE_URL: http://qa-core-service:4002
+      PROJECTS_SERVICE_URL: http://projects-service:4001
+      AUTOMATION_UPLOAD_MAX_BYTES: ${AUTOMATION_UPLOAD_MAX_BYTES:-52428800}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-qualiguali-evidence}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      S3_FORCE_PATH_STYLE: 'true'
+      # MinIO isn't reachable at http://minio:9000 from the host browser/CLI —
+      # override with http://localhost:9000 if evidence URLs need to be
+      # opened outside the Docker network.
+      S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE:-}
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:domain-events
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      projects-service:
+        condition: service_started
+      qa-core-service:
+        condition: service_started
+      minio:
+        condition: service_started
+      localstack:
+        condition: service_started
+
+  defects-service:
+    build:
+      context: .
+      dockerfile: services/defects-service/Dockerfile
+    container_name: qualiguali-defects-service
+    restart: unless-stopped
+    ports:
+      - '4004:4004'
+    environment:
+      NODE_ENV: development
+      PORT: 4004
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      PROJECTS_SERVICE_URL: http://projects-service:4001
+      EXECUTION_SERVICE_URL: http://execution-service:4003
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-qualiguali-evidence}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE:-}
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:domain-events
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      projects-service:
+        condition: service_started
+      execution-service:
+        condition: service_started
+      minio:
+        condition: service_started
+      localstack:
+        condition: service_started
+
+  reports-service:
+    build:
+      context: .
+      dockerfile: services/reports-service/Dockerfile
+    container_name: qualiguali-reports-service
+    restart: unless-stopped
+    ports:
+      - '4005:4005'
+    environment:
+      NODE_ENV: development
+      PORT: 4005
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      EXECUTION_SERVICE_URL: http://execution-service:4003
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/reports-service-domain-events
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      execution-service:
+        condition: service_started
+      localstack:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: qualiguali-web
+    restart: unless-stopped
+    ports:
+      - '5173:5173'
+    environment:
+      # The browser (not this container) makes these requests, so they must
+      # be reachable from the host — the published ports above, not the
+      # internal Docker service hostnames used by service-to-service calls.
+      VITE_AUTH_URL: http://localhost:4000
+      VITE_PROJECTS_URL: http://localhost:4001
+      VITE_QA_CORE_URL: http://localhost:4002
+      VITE_EXECUTION_URL: http://localhost:4003
+      VITE_DEFECTS_URL: http://localhost:4004
+      VITE_REPORTS_URL: http://localhost:4005
+    depends_on:
+      auth-service:
+        condition: service_started
+      projects-service:
+        condition: service_started
+      qa-core-service:
+        condition: service_started
+      execution-service:
+        condition: service_started
+      defects-service:
+        condition: service_started
+      reports-service:
+        condition: service_started
+
+volumes:
+  qualiguali-mongo-data:
+  qualiguali-minio-data:
+  qualiguali-localstack-data:

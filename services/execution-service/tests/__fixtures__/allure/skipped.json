@@ -1,0 +1,9 @@
+{
+  "uuid": "a1a1a1a1-0000-0000-0000-000000000003",
+  "name": "User can reset password via email",
+  "status": "skipped",
+  "statusDetails": { "message": "Skipped: feature flag disabled" },
+  "start": 1700000004000,
+  "stop": 1700000004000,
+  "labels": [{ "name": "suite", "value": "Password Recovery Suite" }]
+}

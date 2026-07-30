@@ -1,0 +1,50 @@
+.trigger {
+  display: inline-block;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--color-text-secondary);
+  text-underline-offset: 2px;
+}
+
+.trigger:hover {
+  text-decoration-style: solid;
+  color: var(--color-primary);
+}
+
+.preserveWhitespace {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.fullText {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background-color: var(--color-bg);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

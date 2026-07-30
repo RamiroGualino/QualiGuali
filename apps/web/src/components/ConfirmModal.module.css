@@ -1,0 +1,10 @@
+.message {
+  margin: 0 0 1rem;
+  color: var(--color-text-primary);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}

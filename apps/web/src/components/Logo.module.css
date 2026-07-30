@@ -1,0 +1,4 @@
+.logo {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}

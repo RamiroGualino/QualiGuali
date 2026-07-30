@@ -1,0 +1,7 @@
+.row {
+  max-width: 20rem;
+}
+
+.row + .row {
+  margin-top: 1rem;
+}

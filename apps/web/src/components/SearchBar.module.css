@@ -1,0 +1,56 @@
+.wrapper {
+  position: relative;
+  margin-bottom: 1rem;
+  max-width: 22rem;
+}
+
+.icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.input {
+  width: 100%;
+  padding: 0.6rem 2.1rem 0.6rem 2.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-subtle, var(--color-border));
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+}
+
+.input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.clear:hover {
+  background-color: var(--color-border-subtle, var(--color-border));
+  color: var(--color-text-primary);
+}

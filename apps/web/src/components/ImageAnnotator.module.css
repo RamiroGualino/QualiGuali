@@ -1,0 +1,105 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background-color: var(--color-bg);
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.toolButton {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toolButton:hover {
+  background-color: var(--color-surface);
+}
+
+.toolButtonActive {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.colorSwatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.colorSwatchActive {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 2px var(--color-bg);
+}
+
+.widthButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: none;
+  cursor: pointer;
+}
+
+.widthButton:hover {
+  background-color: var(--color-surface);
+}
+
+.widthButtonActive {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.widthPreview {
+  display: block;
+  width: 1.1rem;
+  border-radius: 999px;
+  background-color: var(--color-text-primary);
+}
+
+.canvasWrapper {
+  overflow: auto;
+  max-height: 28rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background-color: var(--color-bg);
+}
+
+.canvas {
+  display: block;
+  max-width: 100%;
+  cursor: crosshair;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

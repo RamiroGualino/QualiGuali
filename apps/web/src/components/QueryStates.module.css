@@ -1,0 +1,10 @@
+.state {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.errorText {
+  color: var(--color-fail);
+  margin-bottom: 0.75rem;
+}

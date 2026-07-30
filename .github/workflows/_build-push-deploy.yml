@@ -1,0 +1,56 @@
+name: _build-push-deploy
+
+# Reusable workflow: build one component's image, push it to ECR, then
+# auto-deploy it to the "dev" EC2 host. Called once per changed component
+# from deploy.yml — kept as its own file instead of duplicating these ~20
+# lines 7 times.
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: qualiguali/${{ inputs.service }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f "${{ inputs.dockerfile }}" -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$REPOSITORY:dev" .
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$REPOSITORY:dev"
+
+      # No SSH key management: SSM Run Command executes on the instance
+      # via the already-installed SSM agent + its instance IAM role.
+      # [DECISIÓN PENDIENTE] DEV_EC2_INSTANCE_ID is a placeholder secret
+      # until the dev EC2 host is provisioned — see docs/RUNBOOK.md.
+      - name: Deploy to dev EC2 via SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ secrets.DEV_EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /opt/qualiguali && docker compose pull ${{ inputs.service }} && docker compose up -d ${{ inputs.service }}"]' \
+            --region "${{ env.AWS_REGION }}"

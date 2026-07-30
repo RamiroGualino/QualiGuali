@@ -1,0 +1,21 @@
+{
+  "collection": { "info": { "name": "Payments API" } },
+  "run": {
+    "stats": {
+      "assertions": { "total": 2, "failed": 0 }
+    },
+    "executions": [
+      {
+        "item": { "name": "GET /health" },
+        "response": { "responseTime": 45 },
+        "assertions": [{ "assertion": "Status code is 200" }]
+      },
+      {
+        "item": { "name": "POST /payments" },
+        "response": { "responseTime": 120 },
+        "assertions": [{ "assertion": "Response has paymentId" }]
+      }
+    ],
+    "timings": { "started": 1700000010000, "completed": 1700000010200 }
+  }
+}

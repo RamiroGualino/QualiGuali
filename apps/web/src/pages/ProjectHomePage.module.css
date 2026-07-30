@@ -1,0 +1,58 @@
+.kpiGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.summary {
+  margin-bottom: 1rem;
+  background-color: var(--color-bg);
+}
+
+.summaryTitle {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.summaryText {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.chartTitle {
+  margin: 0 0 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.donutLegend {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.legendSwatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.coverageTotal {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}

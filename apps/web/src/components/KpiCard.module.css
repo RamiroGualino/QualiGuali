@@ -1,0 +1,52 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 8rem;
+  flex: 1;
+  border-top-width: 4px;
+}
+
+.accent-info {
+  border-top-color: var(--color-info);
+}
+
+.accent-pass {
+  border-top-color: var(--color-pass);
+}
+
+.accent-warning {
+  border-top-color: var(--color-warning);
+}
+
+.accent-fail {
+  border-top-color: var(--color-fail);
+}
+
+.breakdown {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.default {
+  color: var(--color-text-primary);
+}
+
+.pass {
+  color: var(--color-pass);
+}
+
+.fail {
+  color: var(--color-fail);
+}

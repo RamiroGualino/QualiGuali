@@ -1,0 +1,60 @@
+.section {
+  margin-bottom: 1rem;
+}
+
+.sectionLabel {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 1rem 0 0.5rem;
+}
+
+.excelTemplateHint {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  max-width: 60ch;
+}
+
+.columnRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+}
+
+.columnRow > *:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.excelTemplateActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.fieldRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fieldRow > * {
+  min-width: 8rem;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.9rem;
+}
+
+.submitRow {
+  margin-top: 1rem;
+}

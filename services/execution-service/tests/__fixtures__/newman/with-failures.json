@@ -1,0 +1,31 @@
+{
+  "collection": { "info": { "name": "Payments API" } },
+  "run": {
+    "stats": {
+      "assertions": { "total": 3, "failed": 1 }
+    },
+    "executions": [
+      {
+        "item": { "name": "GET /health" },
+        "response": { "responseTime": 40 },
+        "assertions": [{ "assertion": "Status code is 200" }]
+      },
+      {
+        "item": { "name": "POST /payments" },
+        "response": { "responseTime": 300 },
+        "assertions": [
+          { "assertion": "Status code is 201" },
+          {
+            "assertion": "Response has paymentId",
+            "error": {
+              "name": "AssertionError",
+              "message": "expected response body to have property 'paymentId'",
+              "stack": "AssertionError: expected response body to have property 'paymentId'\n    at Object.eval (test.js:5:10)"
+            }
+          }
+        ]
+      }
+    ],
+    "timings": { "started": 1700000020000, "completed": 1700000020500 }
+  }
+}

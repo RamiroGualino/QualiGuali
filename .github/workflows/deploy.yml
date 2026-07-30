@@ -1,0 +1,152 @@
+name: Deploy
+
+# Runs on merge to main: builds Docker images only for the service(s) that
+# actually changed (same paths-filter approach as ci.yml), pushes them to
+# ECR, and auto-deploys to the "dev" EC2 host via SSM (no SSH keys to
+# manage). Production is a separate, manually-gated job — see the
+# deploy-production job below and docs/RUNBOOK.md for the
+# [DECISIÓN PENDIENTE] notes on prod infra, which isn't provisioned yet.
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      shared: ${{ steps.filter.outputs.shared }}
+      auth: ${{ steps.filter.outputs.auth }}
+      projects: ${{ steps.filter.outputs.projects }}
+      qacore: ${{ steps.filter.outputs.qacore }}
+      execution: ${{ steps.filter.outputs.execution }}
+      defects: ${{ steps.filter.outputs.defects }}
+      reports: ${{ steps.filter.outputs.reports }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'packages/shared/**'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+            auth:
+              - 'services/auth-service/**'
+            projects:
+              - 'services/projects-service/**'
+            qacore:
+              - 'services/qa-core-service/**'
+            execution:
+              - 'services/execution-service/**'
+            defects:
+              - 'services/defects-service/**'
+            reports:
+              - 'services/reports-service/**'
+            web:
+              - 'apps/web/**'
+
+  # One build+push+deploy-to-dev job per component. Each only runs if its
+  # own path (or packages/shared/**, which every component depends on)
+  # changed in this push — this is what keeps a defects-only merge from
+  # rebuilding and redeploying the other 6 images.
+  build-auth-service:
+    needs: changes
+    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: auth-service
+      dockerfile: services/auth-service/Dockerfile
+    secrets: inherit
+
+  build-projects-service:
+    needs: changes
+    if: needs.changes.outputs.projects == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: projects-service
+      dockerfile: services/projects-service/Dockerfile
+    secrets: inherit
+
+  build-qa-core-service:
+    needs: changes
+    if: needs.changes.outputs.qacore == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: qa-core-service
+      dockerfile: services/qa-core-service/Dockerfile
+    secrets: inherit
+
+  build-execution-service:
+    needs: changes
+    if: needs.changes.outputs.execution == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: execution-service
+      dockerfile: services/execution-service/Dockerfile
+    secrets: inherit
+
+  build-defects-service:
+    needs: changes
+    if: needs.changes.outputs.defects == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: defects-service
+      dockerfile: services/defects-service/Dockerfile
+    secrets: inherit
+
+  build-reports-service:
+    needs: changes
+    if: needs.changes.outputs.reports == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: reports-service
+      dockerfile: services/reports-service/Dockerfile
+    secrets: inherit
+
+  build-web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/_build-push-deploy.yml
+    with:
+      service: web
+      dockerfile: apps/web/Dockerfile
+    secrets: inherit
+
+  # Manual gate: this job only runs once someone with access to the
+  # "production" GitHub Environment approves it (Settings > Environments >
+  # production > required reviewers — cannot be expressed in YAML, must be
+  # configured in the repo UI, documented in docs/RUNBOOK.md).
+  # [DECISIÓN PENDIENTE] Prod EC2 host / target group isn't provisioned yet;
+  # PROD_EC2_INSTANCE_ID is a placeholder secret until that infra exists.
+  deploy-production:
+    needs:
+      - build-auth-service
+      - build-projects-service
+      - build-qa-core-service
+      - build-execution-service
+      - build-defects-service
+      - build-reports-service
+      - build-web
+    if: always() && !failure() && !cancelled()
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Redeploy changed services on the prod EC2 host via SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ secrets.PROD_EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /opt/qualiguali && docker compose pull && docker compose up -d"]' \
+            --region "${{ env.AWS_REGION }}"

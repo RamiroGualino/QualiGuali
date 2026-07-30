@@ -1,0 +1,27 @@
+{
+  "name": "reports-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QualiGuali reports-service — read-model del dashboard unificado de QA (colecciones reports_cycleReports, reports_trendPoints y afines), alimentado por eventos de dominio vía SQS.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1094.0",
+    "@qualiguali/shared": "workspace:*",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.8.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
+  }
+}

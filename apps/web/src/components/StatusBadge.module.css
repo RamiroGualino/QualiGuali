@@ -1,0 +1,30 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.pass {
+  background-color: color-mix(in srgb, var(--color-pass) 18%, transparent);
+  color: var(--color-pass);
+}
+
+.fail {
+  background-color: color-mix(in srgb, var(--color-fail) 18%, transparent);
+  color: var(--color-fail);
+}
+
+.warning {
+  background-color: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-warning);
+}
+
+.neutral {
+  background-color: var(--color-border);
+  color: var(--color-text-secondary);
+}

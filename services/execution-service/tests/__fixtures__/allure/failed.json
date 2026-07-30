@@ -1,0 +1,15 @@
+{
+  "uuid": "a1a1a1a1-0000-0000-0000-000000000002",
+  "name": "User sees error with invalid password",
+  "status": "failed",
+  "statusDetails": {
+    "message": "Expected error banner to be visible",
+    "trace": "AssertionError: expected false to be true\n    at Context.<anonymous> (login.spec.js:42:10)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
+  },
+  "start": 1700000002000,
+  "stop": 1700000003500,
+  "labels": [
+    { "name": "suite", "value": "Login Suite" },
+    { "name": "feature", "value": "Authentication" }
+  ]
+}

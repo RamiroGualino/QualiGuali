@@ -1,0 +1,199 @@
+name: CI
+
+# Only lints + tests the service(s) actually touched by a push/PR (v1.0 §6.3
+# requirement, non-optional) — detected via dorny/paths-filter against the
+# diff, so e.g. a change scoped to services/defects-service/** only runs the
+# `defects-service` job below, not all 7. A change under packages/shared/**
+# (or a repo-wide config file) reruns everything, since every package
+# depends on it via the pnpm workspace link.
+on:
+  push:
+  pull_request:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      shared: ${{ steps.filter.outputs.shared }}
+      auth: ${{ steps.filter.outputs.auth }}
+      projects: ${{ steps.filter.outputs.projects }}
+      qacore: ${{ steps.filter.outputs.qacore }}
+      execution: ${{ steps.filter.outputs.execution }}
+      defects: ${{ steps.filter.outputs.defects }}
+      reports: ${{ steps.filter.outputs.reports }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'packages/shared/**'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'eslint.config.js'
+              - '.prettierrc.js'
+            auth:
+              - 'services/auth-service/**'
+            projects:
+              - 'services/projects-service/**'
+            qacore:
+              - 'services/qa-core-service/**'
+            execution:
+              - 'services/execution-service/**'
+            defects:
+              - 'services/defects-service/**'
+            reports:
+              - 'services/reports-service/**'
+            web:
+              - 'apps/web/**'
+
+  shared:
+    needs: changes
+    if: needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint packages/shared
+      - run: pnpm --filter @qualiguali/shared test
+
+  auth-service:
+    needs: changes
+    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint services/auth-service
+      - run: pnpm --filter auth-service test
+        env:
+          JWT_SECRET: ci-test-secret
+
+  projects-service:
+    needs: changes
+    if: needs.changes.outputs.projects == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint services/projects-service
+      - run: pnpm --filter projects-service test
+        env:
+          JWT_SECRET: ci-test-secret
+
+  qa-core-service:
+    needs: changes
+    if: needs.changes.outputs.qacore == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint services/qa-core-service
+      - run: pnpm --filter qa-core-service test
+        env:
+          JWT_SECRET: ci-test-secret
+
+  execution-service:
+    needs: changes
+    if: needs.changes.outputs.execution == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint services/execution-service
+      - run: pnpm --filter execution-service test
+        env:
+          JWT_SECRET: ci-test-secret
+
+  defects-service:
+    needs: changes
+    if: needs.changes.outputs.defects == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint services/defects-service
+      - run: pnpm --filter defects-service test
+        env:
+          JWT_SECRET: ci-test-secret
+
+  reports-service:
+    needs: changes
+    if: needs.changes.outputs.reports == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint services/reports-service
+      - run: pnpm --filter reports-service test
+        env:
+          JWT_SECRET: ci-test-secret
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: npx eslint apps/web
+      - run: pnpm --filter web test

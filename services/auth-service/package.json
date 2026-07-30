@@ -1,0 +1,29 @@
+{
+  "name": "auth-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QualiGuali auth-service — usuarios, login, roles y JWT sobre la base compartida qualiguali (colección auth_users).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/scripts/seedSuperAdmin.js",
+    "test": "jest --runInBand",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@qualiguali/shared": "workspace:*",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.8.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
+  }
+}

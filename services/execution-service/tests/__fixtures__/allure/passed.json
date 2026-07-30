@@ -1,0 +1,12 @@
+{
+  "uuid": "a1a1a1a1-0000-0000-0000-000000000001",
+  "name": "User can log in with valid credentials",
+  "status": "passed",
+  "statusDetails": {},
+  "start": 1700000000000,
+  "stop": 1700000001200,
+  "labels": [
+    { "name": "suite", "value": "Login Suite" },
+    { "name": "feature", "value": "Authentication" }
+  ]
+}

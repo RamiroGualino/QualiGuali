@@ -1,0 +1,38 @@
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: 12px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone:focus-visible {
+  border-color: var(--color-primary);
+}
+
+.over {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.compact {
+  padding: 0.6rem 1rem;
+}
+
+.compact .hint {
+  font-size: 0.8rem;
+}
+
+.input {
+  display: none;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}

@@ -1,0 +1,27 @@
+{
+  "name": "execution-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QualiGuali execution-service — ciclos de ejecución manual, ejecuciones y evidencias (S3/MinIO) sobre la base compartida qualiguali (colecciones execution_*).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1094.0",
+    "@qualiguali/shared": "workspace:*",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.8.0",
+    "multer": "^2.2.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
+  }
+}

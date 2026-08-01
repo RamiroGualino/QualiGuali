@@ -10,6 +10,7 @@ const CycleReport = require('../../src/models/CycleReport');
 const TrendPoint = require('../../src/models/TrendPoint');
 const FailedTest = require('../../src/models/FailedTest');
 const ExecutionIndex = require('../../src/models/ExecutionIndex');
+const Notification = require('../../src/models/Notification');
 
 beforeAll(async () => testDb.connect());
 afterEach(async () => {
@@ -297,6 +298,169 @@ describe('AutomationRunIngested', () => {
 
     expect(await CycleReport.countDocuments({})).toBe(0);
     expect(executionClient.getAutomationRun).not.toHaveBeenCalled();
+  });
+
+  // Etapa 5 (docs/postman-runner/etapa-5-sistema-de-reportes.md): a live
+  // Postman Suite run has no cycleId — this is the sibling branch to the
+  // cycleId-attributed tests above, attributing the same failures/trend
+  // data to postmanSuiteId instead.
+  test('a run with no cycleId but a postmanSuiteId still records failing tests and a trend point', async () => {
+    executionClient.getAutomationRun.mockResolvedValue({
+      _id: 'run-4',
+      rawReportUrl: 'http://minio.local/bucket/newman-run.json',
+    });
+    executionClient.getAutomationRunTests.mockResolvedValue([
+      { _id: 'atr-3', testName: 'GET /health', suiteName: 'Smoke API', status: 'passed' },
+      {
+        _id: 'atr-4',
+        testName: 'POST /login',
+        suiteName: 'Smoke API',
+        status: 'failed',
+        errorMessage: 'expected 200, got 500',
+      },
+    ]);
+
+    await processEvent(
+      domainEvent('AutomationRunIngested', {
+        automationRunId: 'run-4',
+        projectId: 'proj-1',
+        cycleId: null,
+        postmanSuiteId: 'suite-1',
+        tool: 'newman',
+        summary: { total: 2, passed: 1, failed: 1, broken: 0, skipped: 0 },
+        executedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+
+    expect(await CycleReport.countDocuments({})).toBe(0);
+
+    const failures = await FailedTest.find({ postmanSuiteId: 'suite-1', origin: 'newman' });
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({
+      cycleId: null,
+      testName: 'POST /login',
+      rawReportUrl: 'http://minio.local/bucket/newman-run.json',
+      errorMessage: 'expected 200, got 500',
+    });
+
+    const trendPoints = await TrendPoint.find({ postmanSuiteId: 'suite-1' });
+    expect(trendPoints).toHaveLength(1);
+    expect(trendPoints[0]).toMatchObject({
+      projectId: 'proj-1',
+      cycleId: null,
+      origin: 'newman',
+      passRate: 0.5,
+    });
+    expect(trendPoints[0].date.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+
+    // Same failures drill-down data reachable through the project trend
+    // endpoint's data source — no cycleId filter, so a postmanSuiteId
+    // point shows up in the project-wide trend just like any other origin.
+    expect(executionClient.getAutomationRun).toHaveBeenCalledWith('run-4');
+  });
+
+  test('a run with neither cycleId nor postmanSuiteId does not create a FailedTest or TrendPoint', async () => {
+    await processEvent(
+      domainEvent('AutomationRunIngested', {
+        automationRunId: 'run-5',
+        projectId: 'proj-1',
+        cycleId: null,
+        postmanSuiteId: null,
+        tool: 'newman',
+        summary: { total: 1, passed: 1, failed: 0, broken: 0, skipped: 0 },
+        executedAt: new Date().toISOString(),
+      }),
+    );
+
+    expect(await CycleReport.countDocuments({})).toBe(0);
+    expect(await FailedTest.countDocuments({})).toBe(0);
+    expect(await TrendPoint.countDocuments({})).toBe(0);
+    expect(executionClient.getAutomationRun).not.toHaveBeenCalled();
+  });
+});
+
+// Etapa 7 (docs/postman-runner/etapa-7-sistema-de-alertas.md).
+describe('AutomationRunIngested → Notification', () => {
+  test('creates a Notification when the run has at least one failed test, resolving the Suite name', async () => {
+    executionClient.getPostmanSuite.mockResolvedValue({ _id: 'suite-1', name: 'Smoke API' });
+
+    await processEvent(
+      domainEvent('AutomationRunIngested', {
+        automationRunId: 'run-10',
+        projectId: 'proj-1',
+        cycleId: null,
+        postmanSuiteId: 'suite-1',
+        tool: 'newman',
+        summary: { total: 2, passed: 1, failed: 1, broken: 0, skipped: 0 },
+        executedAt: new Date().toISOString(),
+      }),
+    );
+
+    const notifications = await Notification.find({ projectId: 'proj-1' });
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({
+      type: 'automation_run_failed',
+      relatedAutomationRunId: 'run-10',
+      isRead: false,
+    });
+    expect(notifications[0].message).toContain('Smoke API');
+    expect(notifications[0].message).toContain('1 failed');
+  });
+
+  test('falls back to the raw id when the Suite/Cycle name cannot be resolved', async () => {
+    executionClient.getPostmanSuite.mockResolvedValue(null);
+
+    await processEvent(
+      domainEvent('AutomationRunIngested', {
+        automationRunId: 'run-11',
+        projectId: 'proj-1',
+        cycleId: null,
+        postmanSuiteId: 'suite-missing',
+        tool: 'newman',
+        summary: { total: 1, passed: 0, failed: 1, broken: 0, skipped: 0 },
+        executedAt: new Date().toISOString(),
+      }),
+    );
+
+    const [notification] = await Notification.find({ projectId: 'proj-1' });
+    expect(notification.message).toContain('suite-missing');
+  });
+
+  test('does not create a Notification when nothing failed', async () => {
+    await processEvent(
+      domainEvent('AutomationRunIngested', {
+        automationRunId: 'run-12',
+        projectId: 'proj-1',
+        cycleId: null,
+        postmanSuiteId: 'suite-1',
+        tool: 'newman',
+        summary: { total: 1, passed: 1, failed: 0, broken: 0, skipped: 0 },
+        executedAt: new Date().toISOString(),
+      }),
+    );
+
+    expect(await Notification.countDocuments({})).toBe(0);
+  });
+
+  test('still notifies for a cycle-attributed run with failures (Allure/manual Newman)', async () => {
+    executionClient.getAutomationRun.mockResolvedValue({ _id: 'run-13', rawReportUrl: 'http://x' });
+    executionClient.getAutomationRunTests.mockResolvedValue([]);
+    executionClient.getExecutionCycle.mockResolvedValue({ _id: 'cycle-9', name: 'Regression' });
+
+    await processEvent(
+      domainEvent('AutomationRunIngested', {
+        automationRunId: 'run-13',
+        projectId: 'proj-1',
+        cycleId: 'cycle-9',
+        tool: 'allure',
+        summary: { total: 2, passed: 1, failed: 1, broken: 0, skipped: 0 },
+        executedAt: new Date().toISOString(),
+      }),
+    );
+
+    const [notification] = await Notification.find({ projectId: 'proj-1' });
+    expect(notification).toBeDefined();
+    expect(notification.message).toContain('Regression');
   });
 });
 

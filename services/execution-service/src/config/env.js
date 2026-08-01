@@ -19,6 +19,10 @@ const env = {
   // Max size per uploaded automation report file (Arquitectura v1.1 §8.4
   // [DECISIÓN PENDIENTE]: 50MB default, configurable).
   automationUploadMaxBytes: Number(process.env.AUTOMATION_UPLOAD_MAX_BYTES) || 50 * 1024 * 1024,
+  // Postman collections/environments are plain JSON, not binary automation
+  // reports — 5MB comfortably covers even a large real-world collection
+  // (Etapa 2 [DECISIÓN PENDIENTE] resolved: docs/postman-runner/etapa-2-gestion-de-suites.md).
+  postmanUploadMaxBytes: Number(process.env.POSTMAN_UPLOAD_MAX_BYTES) || 5 * 1024 * 1024,
   s3: {
     endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
     region: process.env.S3_REGION || 'us-east-1',

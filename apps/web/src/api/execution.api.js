@@ -51,4 +51,46 @@ export const automationRunsApi = {
     if (tool) formData.append('tool', tool);
     return client.postForm('/execution/automation-runs', formData);
   },
+  retry: (id) => client.post(`/execution/automation-runs/${id}/retry`),
+};
+
+// Postman Runner module (docs/postman-runner/) — a PostmanSuite is a
+// collection + optional environment, versioned; distinct from an
+// AutomationRun (automationRunsApi above), which is one execution's
+// results. `collection`/`environment` fields are two separate named
+// multipart fields (never an array like automationRunsApi.upload's
+// `files`) — a collection and an environment are never interchangeable.
+export const postmanSuitesApi = {
+  list: (params) => client.get('/postman-suites', params),
+  get: (id) => client.get(`/postman-suites/${id}`),
+  create: ({
+    projectId,
+    name,
+    description,
+    requirementId,
+    timeoutMs,
+    collectionFile,
+    environmentFile,
+  }) => {
+    const formData = new FormData();
+    formData.append('projectId', projectId);
+    formData.append('name', name);
+    if (description) formData.append('description', description);
+    if (requirementId) formData.append('requirementId', requirementId);
+    if (timeoutMs) formData.append('timeoutMs', String(timeoutMs));
+    formData.append('collection', collectionFile);
+    if (environmentFile) formData.append('environment', environmentFile);
+    return client.postForm('/postman-suites', formData);
+  },
+  update: (id, patch) => client.patch(`/postman-suites/${id}`, patch),
+  remove: (id) => client.del(`/postman-suites/${id}`),
+  addVersion: (id, { collectionFile, environmentFile }) => {
+    const formData = new FormData();
+    formData.append('collection', collectionFile);
+    if (environmentFile) formData.append('environment', environmentFile);
+    return client.postForm(`/postman-suites/${id}/versions`, formData);
+  },
+  listVersions: (id) => client.get(`/postman-suites/${id}/versions`),
+  run: (id) => client.post(`/postman-suites/${id}/run`),
+  compare: (id, params) => client.get(`/postman-suites/${id}/compare`, params),
 };

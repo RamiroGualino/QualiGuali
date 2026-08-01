@@ -1,0 +1,5 @@
+{
+  "id": "b1c2d3e4-0000-0000-0000-000000000002",
+  "name": "QualiGuali Local",
+  "values": [{ "key": "baseUrl", "value": "http://localhost:4003", "enabled": true }]
+}

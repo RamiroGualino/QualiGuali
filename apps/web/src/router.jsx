@@ -7,6 +7,8 @@ import { TestManagementPage } from './pages/TestManagementPage';
 import { TestCycleManagementPage } from './pages/TestCycleManagementPage';
 import { ExecutionCycleDetailPage } from './pages/ExecutionCycleDetailPage';
 import { AutomationPage } from './pages/AutomationPage';
+import { AutomationRunDetailPage } from './pages/AutomationRunDetailPage';
+import { PostmanSuitesPage } from './pages/PostmanSuitesPage';
 import { DefectsPage } from './pages/DefectsPage';
 import { DefectDetailPage } from './pages/DefectDetailPage';
 import { ReportsDashboardPage } from './pages/ReportsDashboardPage';
@@ -45,6 +47,11 @@ export function AppRouter() {
           />
           <Route path="/projects/:projectId/automation" element={<AutomationPage />} />
           <Route path="/projects/:projectId/automation/api" element={<AutomationPage />} />
+          <Route path="/projects/:projectId/automation/suites" element={<PostmanSuitesPage />} />
+          <Route
+            path="/projects/:projectId/automation/runs/:runId"
+            element={<AutomationRunDetailPage />}
+          />
           <Route path="/projects/:projectId/defects" element={<DefectsPage />} />
           <Route path="/projects/:projectId/defects/:defectId" element={<DefectDetailPage />} />
           <Route path="/projects/:projectId/reports" element={<ReportsDashboardPage />} />

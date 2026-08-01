@@ -1,9 +1,12 @@
 # reports-service
 
 Read-model del dashboard unificado de QA. Consume eventos de dominio (SNS → SQS, vía LocalStack en
-local) publicados por `execution-service` y `defects-service`, y expone únicamente endpoints de
+local) publicados por `execution-service` y `defects-service`, y expone en su mayoría endpoints de
 **lectura** — ningún endpoint público escribe sobre `reports_cycleReports` / `reports_trendPoints`,
-todo cambio entra por el consumer de eventos.
+todo cambio ahí entra por el consumer de eventos. La única excepción es `reports_notifications`
+(Etapa 7 del módulo Ejecutor de Colecciones Postman — `docs/postman-runner/`): el consumer _crea_
+las notificaciones, pero marcarlas como leídas es una acción del usuario, no algo que dispare un
+evento de dominio — ver "Notificaciones" más abajo.
 
 ## Auth
 
@@ -11,13 +14,16 @@ Los endpoints de lectura requieren un JWT válido (`Authorization: Bearer <token
 resto de los servicios. El consumer de eventos, en cambio, no tiene ningún request de usuario del
 cual reenviar un token — ver "Autenticación de servicio a servicio" más abajo.
 
-## Endpoints (solo lectura)
+## Endpoints
 
 | Método | Ruta                                 | Descripción                                                                                            |
 | ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
 | GET    | `/reports/cycles/:cycleId`           | KPIs combinados (manual + Allure + Newman) + defectos abiertos de un ciclo.                            |
 | GET    | `/reports/cycles/:cycleId/failures`  | Drill-down de fallos (`?origin=&module=`), con evidencia/`rawReportUrl` y defecto vinculado si existe. |
 | GET    | `/reports/projects/:projectId/trend` | Serie histórica para el gráfico de tendencia (`?from=&to=&origin=`).                                   |
+| GET    | `/notifications`                     | Lista de notificaciones de un proyecto (`?projectId=` requerido, `?isRead=`), con `unreadCount`.       |
+| PATCH  | `/notifications/:id/read`            | Marca una notificación como leída.                                                                     |
+| POST   | `/notifications/mark-all-read`       | Marca todas las notificaciones no leídas de un proyecto (`{ projectId }`) como leídas.                 |
 
 ## Consumers de eventos (SQS)
 
@@ -42,7 +48,50 @@ rompía ese orden (ver tests).
   de fallos, este handler hace **una llamada adicional** a `execution-service`
   (`GET /execution/automation-runs/:id` + `GET /execution/automation-runs/:id/tests`) al momento de
   consumir el evento, para traer el `rawReportUrl` del run y los tests `failed`/`broken`.
+  **Etapa 5 del Ejecutor de Colecciones Postman** (`docs/postman-runner/`, extiende Etapa 4): un
+  run sin `cycleId` pero con `postmanSuiteId` (una corrida en vivo de una `PostmanSuite`, sin ciclo
+  asociado) ya no se descarta después del upsert de `AutomationRunIndex` — se le aplica una rama
+  equivalente, atribuyendo `FailedTest`/`TrendPoint` a `postmanSuiteId` en vez de `cycleId`. No hay
+  `CycleReport` para una `PostmanSuite` (esa colección es estructuralmente por-ciclo), así que no
+  hay agregado análogo a `totalNewman`/`passedNewman` para runs sueltos — cada uno aporta su propio
+  `TrendPoint` (`origin: 'newman'`), a diferencia de `CycleFinished`, donde el `TrendPoint` se arma
+  una sola vez al cerrar el ciclo a partir de los contadores ya acumulados: una corrida de Suite ya
+  es, en sí misma, una ejecución completa y autocontenida, así que cada una es directamente un punto
+  en el tiempo de la tendencia, no algo que se acumule primero. Estos puntos aparecen igual en
+  `GET /reports/projects/:projectId/trend` (no filtra por `cycleId`) — no se agregó ningún endpoint
+  nuevo. **Etapa 7** (ver "Notificaciones" abajo): además, si `summary.failed > 0`, se crea una
+  `Notification` — esto corre antes de la rama `cycleId`/`postmanSuiteId`/ninguno, así que aplica a
+  los tres casos por igual.
 - **`DefectCreated` / `DefectStatusChanged`** → ver "Desnormalización de defectos" abajo.
+
+## Notificaciones (Etapa 7 del módulo Ejecutor de Colecciones Postman — `docs/postman-runner/`)
+
+Una alerta interna, creada por `handleAutomationRunIngested` cuando `summary.failed > 0` —
+`reports-service` ya es el único lugar del sistema que "se entera" de cada corrida (consume
+`AutomationRunIngested`), así que es el lugar natural para decidir si se dispara una alerta, en vez
+de un servicio de notificaciones nuevo.
+
+- **`shouldNotify(summary)`** (`services/notifications.service.js`) es una función pura — lo único
+  que el handler necesita decidir antes de hacer cualquier I/O — separada así para poder testearla
+  sin mockear `executionClient`/Mongoose.
+- **Resolución del nombre para mostrar**: mismo patrón "mejor esfuerzo, con fallback al id crudo"
+  que `handleExecutionUpdated` ya usa para `testCaseId → testName` — una llamada en vivo a
+  `execution-service` (`GET /postman-suites/:id` si el run tiene `postmanSuiteId`, o
+  `GET /execution-cycles/:id` si tiene `cycleId`) que, si falla o el registro ya no existe, cae al id
+  crudo en vez de tirar la notificación entera. El texto queda armado (`title`/`message`) al momento
+  de crear la `Notification`, no se recalcula en cada `GET /notifications`.
+- **`type` es un enum de un solo valor hoy** (`'automation_run_failed'`) a propósito — pensado para
+  agregar otros tipos de alerta a futuro sin modelo nuevo, no porque hoy exista más de uno.
+- **Entrega**: sólo notificaciones internas, listadas vía `GET /notifications` con polling desde el
+  frontend (React Query `refetchInterval`, mismo mecanismo de "server state" que ya usa el resto de
+  la app) — no se agregó WebSockets/SSE. `PATCH /notifications/:id/read` y
+  `POST /notifications/mark-all-read` no están en el diseño original de la etapa, pero sin ellos
+  `isRead` nunca podría pasar a `true` y el badge de no leídas quedaría pegado en su primer valor
+  para siempre — se agregaron como el mínimo necesario para que la funcionalidad sea real de punta a
+  punta.
+- **Extensibilidad**: crear una `Notification` está desacoplado de cómo se entrega. Agregar
+  email/Slack/Teams más adelante es un "adaptador de entrega" nuevo que lee la misma colección (p.
+  ej. un cron que revisa notificaciones no enviadas por ese canal) — no un flujo de datos paralelo.
 
 ## Desnormalización de defectos (y sus límites)
 

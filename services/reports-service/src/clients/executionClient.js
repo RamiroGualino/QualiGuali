@@ -49,10 +49,18 @@ async function getExecutionEvidence(executionId) {
   return body ? body.evidence : [];
 }
 
+// Etapa 7: resolves a PostmanSuite's display name for a failed-run
+// Notification's message — see notifications.service.js.
+async function getPostmanSuite(postmanSuiteId) {
+  const body = await requestJson(`/postman-suites/${postmanSuiteId}`);
+  return body ? body.postmanSuite : null;
+}
+
 module.exports = {
   getExecutionCycle,
   getAutomationTestResult,
   getAutomationRun,
   getAutomationRunTests,
   getExecutionEvidence,
+  getPostmanSuite,
 };

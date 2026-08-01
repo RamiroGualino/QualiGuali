@@ -38,6 +38,42 @@ const STATUS_COLOR = {
   not_executed: COLOR.textSecondary,
 };
 
+// A distinct palette for the Postman Suite run PDF export (buildPostmanRunPdf
+// below), matching the brand/status colors defined in
+// docs/postman-runner/newman-report-sample.html (the HTML export's design
+// reference) — kept separate from COLOR/STATUS_BG above (generateCycleReportPdf's
+// own TestRail-style palette) so this doesn't change the look of the manual
+// test-case report.
+const POSTMAN_BRAND = [255, 108, 55]; // --brand
+const POSTMAN_MUTED = [107, 114, 128]; // --muted
+const POSTMAN_STATUS_TEXT = {
+  passed: [21, 128, 61], // --pass-text
+  failed: [185, 28, 28], // --fail-text
+  broken: [180, 83, 9], // --broken-text
+  skipped: [75, 85, 99], // --skip-text
+};
+const POSTMAN_STATUS_BG = {
+  passed: [231, 247, 237], // --pass-bg
+  failed: [253, 234, 234], // --fail-bg
+  broken: [253, 241, 224], // --broken-bg
+  skipped: [238, 240, 244], // --skip-bg
+};
+const POSTMAN_STATUS_STRONG = {
+  passed: [22, 163, 74], // --pass-strong
+  failed: [220, 38, 38], // --fail-strong
+  broken: [217, 119, 6], // same as --broken-text used as a strong tone
+  skipped: [156, 163, 175],
+};
+const POSTMAN_CODE_BG = [30, 33, 48]; // --code-bg
+const POSTMAN_CODE_TEXT = [212, 216, 228]; // --code-text
+const POSTMAN_METHOD_COLORS = {
+  GET: { text: [29, 78, 216], bg: [231, 243, 255] },
+  POST: { text: [21, 128, 61], bg: [231, 247, 237] },
+  PATCH: { text: [124, 58, 237], bg: [243, 232, 255] },
+  PUT: { text: [180, 83, 9], bg: [254, 243, 199] },
+  DELETE: { text: [185, 28, 28], bg: [253, 234, 234] },
+};
+
 const MARGIN = 40;
 // Every evidence photo renders inside a frame this size (image scaled to
 // *fit inside*, aspect ratio kept, centered) — a uniform photo-grid card
@@ -92,7 +128,11 @@ function stripLatexArtifacts(text) {
 // the Excel Transformer) from turning one test case's section into dozens
 // of unreadable pages. Caps the length and points back at the app for the
 // full value, same reasoning as ExpandableText on-screen.
-function safeText(text, maxLength = PDF_TEXT_MAX_LENGTH, truncationSuffix = PDF_TRUNCATION_SUFFIX) {
+export function safeText(
+  text,
+  maxLength = PDF_TEXT_MAX_LENGTH,
+  truncationSuffix = PDF_TRUNCATION_SUFFIX,
+) {
   if (!text) return text;
   const plain = stripLatexArtifacts(text);
   const capped =
@@ -732,6 +772,394 @@ export function generateCycleReportPdf({ cycleName, generatedAt, kpis, cases, fa
       ),
     );
   }
+
+  return doc;
+}
+
+// Etapa 5 (docs/postman-runner/etapa-5-sistema-de-reportes.md): the Postman
+// Suite run counterpart to generateCycleReportPdf above — same page/margin
+// setup, same status-badge/table styling, same one-sheet-per-case
+// pagination idea (here: one sheet per test), just a leaner document (no
+// steps/evidence/defects section, since a Postman test doesn't have any of
+// those — it has a method/URL/status and a request/response instead).
+// `data` is exactly buildPostmanRunReportData()'s output — already
+// sanitized (safeText/stripLatexArtifacts), so unlike generateCycleReportPdf
+// this function doesn't need its own text()/safeText wrapper at all.
+export function buildPostmanRunPdf({ data, labels, meta = {} }) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+  let y = MARGIN;
+
+  function ensureSpace(needed) {
+    if (y + needed > pageHeight - MARGIN) {
+      doc.addPage();
+      y = MARGIN;
+    }
+  }
+
+  function heading(value, size = 14) {
+    ensureSpace(size + 18);
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(size);
+    doc.setTextColor(...COLOR.textPrimary);
+    doc.text(value, MARGIN, y);
+    y += 8;
+    doc.setDrawColor(...COLOR.border);
+    doc.setLineWidth(0.75);
+    doc.line(MARGIN, y, pageWidth - MARGIN, y);
+    y += 16;
+    doc.setFont('helvetica', 'normal');
+  }
+
+  function subheading(value) {
+    ensureSpace(28);
+    y += 14;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...COLOR.textPrimary);
+    doc.text(value, MARGIN, y);
+    y += 6;
+    doc.setDrawColor(...COLOR.border);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, y, pageWidth - MARGIN, y);
+    doc.setFont('helvetica', 'normal');
+    y += 12;
+  }
+
+  function paragraph(value, size = 9.5, color = COLOR.textPrimary) {
+    if (!value) return;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(value, contentWidth);
+    const lineHeight = size * 1.35;
+    ensureSpace(lines.length * lineHeight);
+    doc.text(lines, MARGIN, y);
+    y += lines.length * lineHeight + 6;
+  }
+
+  function tableDefaults(head, body) {
+    return {
+      startY: y,
+      margin: { left: MARGIN, right: MARGIN },
+      head: [head],
+      body,
+      theme: 'striped',
+      styles: { fontSize: 9, textColor: COLOR.textPrimary, lineColor: COLOR.border },
+      headStyles: { fillColor: COLOR.bg, textColor: COLOR.textSecondary, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: COLOR.bg },
+    };
+  }
+
+  // Status pill: same 4-tone palette (--pass/--fail/--broken/--skip) the
+  // HTML report's .status-pill uses, so a run's pass/fail/broken/skipped
+  // color-coding reads identically in both exports.
+  function statusBadge(x, centerY, label, status, align = 'center') {
+    const color = POSTMAN_STATUS_TEXT[status] || POSTMAN_MUTED;
+    const bg = POSTMAN_STATUS_BG[status] || COLOR.bg;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    const textWidth = doc.getTextWidth(label);
+    const badgeHeight = 15;
+    const badgeWidth = textWidth + 16;
+    const left = align === 'right' ? x - badgeWidth : align === 'left' ? x : x - badgeWidth / 2;
+    doc.setFillColor(...bg);
+    doc.roundedRect(left, centerY - badgeHeight / 2, badgeWidth, badgeHeight, 7.5, 7.5, 'F');
+    doc.setTextColor(...color);
+    doc.text(label, left + badgeWidth / 2, centerY + 3, { align: 'center' });
+    return badgeWidth;
+  }
+
+  // HTTP-method chip — the PDF equivalent of the HTML report's
+  // .method-badge/.method-GET.../.method-DELETE classes.
+  function methodBadge(x, centerY, method) {
+    if (!method) return 0;
+    const palette = POSTMAN_METHOD_COLORS[method] || { text: POSTMAN_MUTED, bg: COLOR.chipBg };
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    const textWidth = doc.getTextWidth(method);
+    const badgeHeight = 15;
+    const badgeWidth = textWidth + 14;
+    doc.setFillColor(...palette.bg);
+    doc.roundedRect(x, centerY - badgeHeight / 2, badgeWidth, badgeHeight, 3.5, 3.5, 'F');
+    doc.setTextColor(...palette.text);
+    doc.text(method, x + badgeWidth / 2, centerY + 3, { align: 'center' });
+    return badgeWidth;
+  }
+
+  // Renders `text` as a dark, monospace "code panel" — the PDF equivalent of
+  // the HTML report's <pre> blocks (var(--code-bg)/var(--code-text)). Sized
+  // up front (not line-by-line via paragraph()) so ensureSpace() moves the
+  // *whole* panel to a fresh page rather than splitting its background
+  // rectangle across a page break.
+  function codePanel(rawText) {
+    const size = 8.5;
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(size);
+    const innerWidth = contentWidth - 20;
+    const lines = doc.splitTextToSize(rawText, innerWidth);
+    const lineHeight = size * 1.45;
+    const panelHeight = lines.length * lineHeight + 16;
+    ensureSpace(panelHeight + 8);
+    doc.setFillColor(...POSTMAN_CODE_BG);
+    doc.roundedRect(MARGIN, y - 4, contentWidth, panelHeight, 5, 5, 'F');
+    doc.setTextColor(...POSTMAN_CODE_TEXT);
+    doc.text(lines, MARGIN + 10, y + 10);
+    y += panelHeight + 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLOR.textPrimary);
+  }
+
+  function fieldBlock(label, field) {
+    if (!field) return;
+    subheading(label);
+    if (field.truncated) {
+      paragraph(`${labels.viewFullContent}: ${field.url}`, 9, COLOR.accent);
+      return;
+    }
+    codePanel(field.text);
+  }
+
+  // 'passed'/'failed'/'broken'/'skipped' -> the same translated pill text
+  // the HTML report's STRINGS.statusPill uses, instead of the raw status.
+  function statusPillLabel(status) {
+    const key = `statusPill${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+    return labels[key] || status;
+  }
+
+  const { run, tests } = data;
+  const executedAtLabel = run.executedAt ? new Date(run.executedAt).toLocaleString() : '—';
+  const triggerLabel = labels[`triggerType_${run.triggerType}`] || run.triggerType;
+
+  // ---- Header banner (brand orange, matching --brand in the HTML report) ----
+  doc.setFillColor(...POSTMAN_BRAND);
+  doc.rect(0, 0, pageWidth, 56, 'F');
+  doc.setTextColor(...COLOR.white);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(labels.reportTitle, MARGIN, 34);
+  y = 80;
+
+  doc.setTextColor(...COLOR.textPrimary);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text(labels.runTitle, MARGIN, y);
+  y += 20;
+
+  // Subtitle: generated-on + trigger type, same wording/labels as the HTML
+  // report's page-header subtitle.
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...COLOR.textSecondary);
+  const subtitle = (labels.generatedOnTrigger || '')
+    .replace('{{date}}', executedAtLabel)
+    .replace('{{trigger}}', triggerLabel);
+  doc.text(subtitle || `${labels.executedAt}: ${executedAtLabel}`, MARGIN, y);
+  y += 15;
+
+  // Project / environment meta line — the PDF equivalent of the HTML
+  // sidebar's project line and env-box.
+  const metaLine = [meta.projectName, `${labels.environment}: ${meta.environmentName || labels.noEnvironment}`]
+    .filter(Boolean)
+    .join('   ·   ');
+  if (metaLine) {
+    doc.text(metaLine, MARGIN, y);
+    y += 15;
+  }
+  y += 9;
+
+  // ---- KPI dashboard ----
+  heading(labels.statusBreakdown);
+  const kpiCards = [
+    { value: run.totalTests, label: labels.totalTestCases, color: COLOR.textPrimary, bg: COLOR.bg },
+    { value: run.passed, label: labels.passed, color: POSTMAN_STATUS_STRONG.passed, bg: POSTMAN_STATUS_BG.passed },
+    { value: run.failed, label: labels.failed, color: POSTMAN_STATUS_STRONG.failed, bg: POSTMAN_STATUS_BG.failed },
+    { value: run.broken, label: labels.broken, color: POSTMAN_STATUS_STRONG.broken, bg: POSTMAN_STATUS_BG.broken },
+    { value: run.skipped, label: labels.skipped, color: POSTMAN_MUTED, bg: POSTMAN_STATUS_BG.skipped },
+  ];
+  const cardGap = 8;
+  const cardHeight = 58;
+  const cardWidth = (contentWidth - cardGap * (kpiCards.length - 1)) / kpiCards.length;
+  ensureSpace(cardHeight + 10);
+  kpiCards.forEach((card, index) => {
+    const x = MARGIN + index * (cardWidth + cardGap);
+    doc.setFillColor(...card.bg);
+    doc.roundedRect(x, y, cardWidth, cardHeight, 5, 5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(19);
+    doc.setTextColor(...card.color);
+    doc.text(String(card.value), x + cardWidth / 2, y + 28, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLOR.textSecondary);
+    doc.text(card.label, x + cardWidth / 2, y + 44, { align: 'center' });
+  });
+  y += cardHeight + 20;
+
+  // ---- Progress bar (--pass/--fail/--broken/--skip segments, same as the
+  // HTML report's .progress-bar) ----
+  const passRate = run.totalTests > 0 ? Math.round((run.passed / run.totalTests) * 100) : 0;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...COLOR.textSecondary);
+  ensureSpace(28);
+  doc.text(labels.generalResult, MARGIN, y);
+  const progressLabel = (labels.passRateDuration || '')
+    .replace('{{rate}}', passRate)
+    .replace('{{duration}}', run.durationMs === null || run.durationMs === undefined ? '—' : `${run.durationMs} ms`);
+  doc.text(progressLabel, pageWidth - MARGIN, y, { align: 'right' });
+  y += 8;
+  const totalForBar = run.totalTests || 1;
+  const barHeight = 8;
+  let barX = MARGIN;
+  doc.setFillColor(...POSTMAN_STATUS_BG.skipped);
+  doc.roundedRect(MARGIN, y, contentWidth, barHeight, 4, 4, 'F');
+  [
+    { value: run.passed, color: POSTMAN_STATUS_STRONG.passed },
+    { value: run.failed, color: POSTMAN_STATUS_STRONG.failed },
+    { value: run.broken, color: POSTMAN_STATUS_STRONG.broken },
+    { value: run.skipped, color: POSTMAN_STATUS_STRONG.skipped },
+  ].forEach((segment) => {
+    const width = (segment.value / totalForBar) * contentWidth;
+    if (width > 0) {
+      doc.setFillColor(...segment.color);
+      doc.rect(barX, y, width, barHeight, 'F');
+      barX += width;
+    }
+  });
+  y += barHeight + 22;
+
+  // ---- Test summary table ----
+  heading(labels.caseSummaryTitle);
+  autoTable(
+    doc,
+    Object.assign(
+      tableDefaults(
+        [labels.testCase, labels.method, labels.status, labels.durationMs],
+        tests.map((testResult) => [
+          testResult.suiteName
+            ? `${testResult.suiteName} — ${testResult.testName}`
+            : testResult.testName,
+          testResult.method || '—',
+          testResult.status,
+          testResult.durationMs === null || testResult.durationMs === undefined
+            ? '—'
+            : `${testResult.durationMs} ms`,
+        ]),
+      ),
+      {
+        columnStyles: {
+          0: { cellWidth: contentWidth * 0.55 },
+          1: { cellWidth: contentWidth * 0.13, halign: 'center' },
+          2: { cellWidth: contentWidth * 0.17, halign: 'center' },
+          3: { cellWidth: contentWidth * 0.15, halign: 'center' },
+        },
+        didParseCell(cell) {
+          if (cell.section === 'body' && cell.column.index === 2) {
+            cell.cell.text = [];
+          }
+        },
+        didDrawCell(cell) {
+          if (cell.section !== 'body' || cell.column.index !== 2) return;
+          const testResult = tests[cell.row.index];
+          statusBadge(
+            cell.cell.x + cell.cell.width / 2,
+            cell.cell.y + cell.cell.height / 2,
+            statusPillLabel(testResult.status),
+            testResult.status,
+          );
+        },
+      },
+    ),
+  );
+  y = doc.lastAutoTable.finalY + 24;
+
+  // ---- Test-by-test detail ----
+  heading(labels.caseDetailsTitle);
+  tests.forEach((testResult) => {
+    // Same reasoning as generateCycleReportPdf's case loop: every test,
+    // including the first, starts on its own fresh page rather than
+    // sharing leftover room with the summary table above.
+    doc.addPage();
+    y = MARGIN;
+
+    const TITLE_SIZE = 15;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(TITLE_SIZE);
+    const titleLines = doc.splitTextToSize(
+      testResult.suiteName
+        ? `${testResult.suiteName} — ${testResult.testName}`
+        : testResult.testName,
+      contentWidth - 92,
+    );
+    const titleLineHeight = TITLE_SIZE * 1.2;
+    ensureSpace(titleLines.length * titleLineHeight + 16);
+    doc.setTextColor(...COLOR.textPrimary);
+    doc.text(titleLines, MARGIN, y);
+    statusBadge(
+      pageWidth - MARGIN,
+      y - 4,
+      statusPillLabel(testResult.status),
+      testResult.status,
+      'right',
+    );
+    doc.setFont('helvetica', 'normal');
+    y += titleLines.length * titleLineHeight + 14;
+
+    // Method chip + URL + response-status chip, on one line — the PDF
+    // equivalent of the HTML report's .test-header (.method-badge,
+    // .request-line, .http-code).
+    if (testResult.method || testResult.url) {
+      ensureSpace(20);
+      const lineCenterY = y + 1;
+      const badgeWidth = methodBadge(MARGIN, lineCenterY, testResult.method);
+      const hasResponseStatus =
+        testResult.responseStatus !== null && testResult.responseStatus !== undefined;
+      let codeWidth = 0;
+      if (hasResponseStatus) {
+        const codeLabel = String(testResult.responseStatus);
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(9);
+        codeWidth = doc.getTextWidth(codeLabel) + 14;
+        doc.setFillColor(...COLOR.bg);
+        doc.setDrawColor(...COLOR.border);
+        doc.setLineWidth(0.75);
+        doc.roundedRect(pageWidth - MARGIN - codeWidth, lineCenterY - 7.5, codeWidth, 15, 3, 3, 'FD');
+        doc.setTextColor(...COLOR.textSecondary);
+        doc.text(codeLabel, pageWidth - MARGIN - codeWidth / 2, lineCenterY + 3, { align: 'center' });
+      }
+      const urlX = badgeWidth ? MARGIN + badgeWidth + 8 : MARGIN;
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...COLOR.textSecondary);
+      const urlText = doc.splitTextToSize(
+        testResult.url || '—',
+        Math.max(contentWidth - badgeWidth - 8 - codeWidth - (codeWidth ? 8 : 0), 80),
+      )[0];
+      doc.text(urlText, urlX, lineCenterY + 3);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLOR.textPrimary);
+      y += 24;
+    }
+
+    if (testResult.errorMessage) {
+      subheading(labels.actualResult);
+      paragraph(testResult.errorMessage, 9.5, POSTMAN_STATUS_TEXT.failed);
+    }
+
+    fieldBlock(labels.requestHeaders, testResult.requestHeaders);
+    fieldBlock(labels.requestBody, testResult.requestBody);
+    fieldBlock(labels.responseHeaders, testResult.responseHeaders);
+    fieldBlock(labels.responseBody, testResult.responseBody);
+
+    if (testResult.logs.length > 0) {
+      subheading(labels.logs);
+      codePanel(testResult.logs.join('\n'));
+    }
+  });
 
   return doc;
 }

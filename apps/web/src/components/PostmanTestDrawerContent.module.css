@@ -1,0 +1,73 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.requestLine {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+  margin: 0.25rem 0;
+  word-break: break-word;
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0.15rem 0;
+}
+
+.error {
+  color: var(--color-fail);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.field {
+  margin-top: 1rem;
+}
+
+.field h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+}
+
+.pre {
+  /* --color-bg-muted was never a real token (always fell back to a fixed
+     light-gray, #f3f4f6) — invisible in dark mode, since the ambient text
+     color there is near-white with no explicit override here. Both
+     background and text now come from real, theme-aware tokens so this
+     reads correctly in both themes. */
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.logs {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

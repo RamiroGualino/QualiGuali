@@ -1,6 +1,7 @@
 jest.mock('../../src/clients/projectsClient');
 jest.mock('../../src/clients/s3Client');
 jest.mock('../../src/services/events');
+jest.mock('../../src/services/postmanRunner.service');
 
 const path = require('path');
 const request = require('supertest');
@@ -10,6 +11,11 @@ const { tokenFor } = require('../helpers/token');
 const projectsClient = require('../../src/clients/projectsClient');
 const s3Client = require('../../src/clients/s3Client');
 const events = require('../../src/services/events');
+const postmanRunner = require('../../src/services/postmanRunner.service');
+const { persistAutomationRun } = require('../../src/services/automationRunPersistence.service');
+const PostmanSuite = require('../../src/models/PostmanSuite');
+const PostmanSuiteVersion = require('../../src/models/PostmanSuiteVersion');
+const AutomationRun = require('../../src/models/AutomationRun');
 const { ROLES } = require('@qualiguali/shared');
 
 const app = createApp();
@@ -226,6 +232,45 @@ describe('GET /execution/automation-runs', () => {
       .set('Authorization', `Bearer ${qaToken()}`);
     expect(outOfRange.body.automationRuns).toHaveLength(0);
   });
+
+  // Etapa 8 (docs/postman-runner/etapa-8-historial-y-auditoria.md).
+  test('filters by postmanSuiteId', async () => {
+    const summary = {
+      total: 1,
+      passed: 1,
+      failed: 0,
+      broken: 0,
+      skipped: 0,
+      durationMs: 12,
+      executedAt: new Date(),
+    };
+    const suiteRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      tool: 'newman',
+      triggeredBy: 'scheduler',
+      postmanSuiteId: '64b6f7e2f1a2b3c4d5e6f7aa',
+      triggerType: 'scheduled',
+      rawReportUrl: 'http://minio.local/bucket/suite-run.json',
+      summary,
+      testResults: [],
+    });
+    await ingest('proj-1', 'newman', newmanFixture('all-passed.json'));
+
+    const res = await request(app)
+      .get(`/execution/automation-runs?postmanSuiteId=${suiteRun.postmanSuiteId}`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.automationRuns).toHaveLength(1);
+    expect(res.body.automationRuns[0]._id).toBe(suiteRun._id.toString());
+  });
+
+  test('rejects an invalid postmanSuiteId with 400', async () => {
+    const res = await request(app)
+      .get('/execution/automation-runs?postmanSuiteId=not-an-id')
+      .set('Authorization', `Bearer ${qaToken()}`);
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('GET /execution/automation-runs/:id', () => {
@@ -288,6 +333,118 @@ describe('GET /execution/automation-runs/:id/tests', () => {
   });
 });
 
+describe('persistAutomationRun (Etapa 4: postmanSuiteId/triggerType and request/response detail)', () => {
+  test('round-trips postmanSuiteId, triggerType, and per-test request/response/logs through GET endpoints', async () => {
+    const postmanSuiteId = '64b6f7e2f1a2b3c4d5e6f7aa';
+    const largeResponseBody = 'x'.repeat(21 * 1024); // over the 20KB inline threshold
+    s3Client.uploadObject.mockResolvedValue(
+      'http://minio.local/qualiguali-evidence/large-body.json',
+    );
+
+    const automationRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      cycleId: null,
+      tool: 'newman',
+      triggeredBy: 'user-1',
+      postmanSuiteId,
+      triggerType: 'scheduled',
+      rawReportUrl: 'http://minio.local/qualiguali-evidence/postman-run.json',
+      summary: {
+        total: 1,
+        passed: 1,
+        failed: 0,
+        broken: 0,
+        skipped: 0,
+        durationMs: 42,
+        executedAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+      testResults: [
+        {
+          suiteName: 'Sample',
+          testName: 'GET /health',
+          status: 'passed',
+          durationMs: 12,
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          requestHeaders: [{ key: 'Accept', value: 'application/json' }],
+          requestBody: null,
+          responseStatus: 200,
+          responseHeaders: [{ key: 'content-type', value: 'application/json' }],
+          responseBody: largeResponseBody,
+          logs: ['[info] starting request', '[info] done'],
+        },
+      ],
+    });
+
+    expect(s3Client.uploadObject).toHaveBeenCalledWith(
+      expect.stringContaining(`automation-runs/${automationRun._id}/results/0-responseBody`),
+      expect.any(Buffer),
+      'application/json',
+    );
+
+    const runRes = await request(app)
+      .get(`/execution/automation-runs/${automationRun._id}`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+    expect(runRes.status).toBe(200);
+    expect(runRes.body.automationRun.postmanSuiteId).toBe(postmanSuiteId);
+    expect(runRes.body.automationRun.triggerType).toBe('scheduled');
+
+    // Etapa 5: postmanSuiteId also needs to reach reports-service through
+    // the event itself, not just be readable back via this GET.
+    expect(events.publish).toHaveBeenCalledWith(
+      'AutomationRunIngested',
+      expect.objectContaining({ postmanSuiteId, cycleId: null }),
+    );
+
+    const testsRes = await request(app)
+      .get(`/execution/automation-runs/${automationRun._id}/tests`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+    expect(testsRes.status).toBe(200);
+    expect(testsRes.body.testResults).toHaveLength(1);
+
+    const [testResult] = testsRes.body.testResults;
+    expect(testResult.method).toBe('GET');
+    expect(testResult.url).toBe('https://api.example.com/health');
+    expect(testResult.responseStatus).toBe(200);
+    expect(testResult.logs).toEqual(['[info] starting request', '[info] done']);
+    // Small enough to stay inline in Mongo.
+    expect(testResult.requestHeaders).toEqual({
+      storage: 'inline',
+      value: [{ key: 'Accept', value: 'application/json' }],
+    });
+    // null passes through untouched, not wrapped as { storage: 'inline', value: null }.
+    expect(testResult.requestBody).toBeNull();
+    // Over threshold — stored in S3, only the URL kept on the document.
+    expect(testResult.responseBody).toEqual({
+      storage: 's3',
+      url: 'http://minio.local/qualiguali-evidence/large-body.json',
+    });
+  });
+
+  test('defaults postmanSuiteId to null and triggerType to "manual" when omitted (manual-upload path)', async () => {
+    const automationRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      cycleId: null,
+      tool: 'newman',
+      triggeredBy: 'user-1',
+      rawReportUrl: 'http://minio.local/qualiguali-evidence/newman.json',
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        broken: 0,
+        skipped: 0,
+        durationMs: 0,
+        executedAt: new Date(),
+      },
+      testResults: [],
+    });
+
+    expect(automationRun.postmanSuiteId).toBeNull();
+    expect(automationRun.triggerType).toBe('manual');
+  });
+});
+
 describe('GET /execution/automation-test-results/:id', () => {
   test('fetches a single test result by its own id (used by defects-service to link)', async () => {
     projectsClient.getProject.mockResolvedValue({ _id: 'proj-1' });
@@ -318,5 +475,206 @@ describe('GET /execution/automation-test-results/:id', () => {
       .get('/execution/automation-test-results/64b6f7e2f1a2b3c4d5e6f7a8')
       .set('Authorization', `Bearer ${qaToken()}`);
     expect(res.status).toBe(404);
+  });
+});
+
+// Etapa 6 (docs/postman-runner/etapa-6-programacion-automatica.md).
+describe('POST /execution/automation-runs/:id/retry', () => {
+  async function flushAsync(times = 5) {
+    for (let i = 0; i < times; i += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  }
+
+  // A Suite currently on v2, whose v1 files differ from its current ones —
+  // exactly the setup that proves a retry uses the *original* run's
+  // version, not whatever the Suite points to today.
+  async function createSuiteAtVersion2() {
+    const suite = await PostmanSuite.create({
+      projectId: 'proj-1',
+      requirementId: '64b6f7e2f1a2b3c4d5e6f7a1',
+      name: 'Smoke API',
+      collectionFileUrl: 'http://minio.local/bucket/collection-v2.json',
+      collectionVersion: 2,
+      environmentFileUrl: 'http://minio.local/bucket/environment-v2.json',
+      environmentVersion: 2,
+      createdBy: 'user-1',
+    });
+    await PostmanSuiteVersion.create({
+      suiteId: suite._id,
+      collectionFileUrl: 'http://minio.local/bucket/collection-v1.json',
+      environmentFileUrl: 'http://minio.local/bucket/environment-v1.json',
+      version: 1,
+      createdBy: 'user-1',
+    });
+    await PostmanSuiteVersion.create({
+      suiteId: suite._id,
+      collectionFileUrl: 'http://minio.local/bucket/collection-v2.json',
+      environmentFileUrl: 'http://minio.local/bucket/environment-v2.json',
+      version: 2,
+      createdBy: 'user-1',
+    });
+    return suite;
+  }
+
+  const sampleSummary = {
+    total: 1,
+    passed: 1,
+    failed: 0,
+    broken: 0,
+    skipped: 0,
+    durationMs: 12,
+    executedAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+  const sampleTestResults = [
+    { suiteName: 'Smoke API', testName: 'GET /health', status: 'passed', durationMs: 12 },
+  ];
+
+  test("re-runs with the collection/environment version the original run used, not the Suite's current one", async () => {
+    const suite = await createSuiteAtVersion2();
+    const originalRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      tool: 'newman',
+      triggeredBy: 'scheduler',
+      postmanSuiteId: suite._id,
+      triggerType: 'scheduled',
+      collectionVersion: 1,
+      environmentVersion: 1,
+      rawReportUrl: 'http://minio.local/bucket/original-run.json',
+      summary: sampleSummary,
+      testResults: sampleTestResults,
+    });
+
+    postmanRunner.isSuiteRunning.mockReturnValue(false);
+    postmanRunner.runSuite.mockResolvedValue({
+      status: 'completed',
+      summary: sampleSummary,
+      testResults: sampleTestResults,
+    });
+    s3Client.uploadObject.mockResolvedValue('http://minio.local/bucket/retry-run.json');
+
+    const res = await request(app)
+      .post(`/execution/automation-runs/${originalRun._id}/retry`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+
+    expect(res.status).toBe(202);
+    expect(res.body).toMatchObject({ status: 'running', postmanSuiteId: suite._id.toString() });
+
+    await flushAsync();
+
+    expect(postmanRunner.runSuite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collectionFileUrl: 'http://minio.local/bucket/collection-v1.json',
+        environmentFileUrl: 'http://minio.local/bucket/environment-v1.json',
+      }),
+      expect.objectContaining({ triggerType: 'retry' }),
+    );
+
+    const retryRuns = await AutomationRun.find({ triggerType: 'retry' });
+    expect(retryRuns).toHaveLength(1);
+    expect(retryRuns[0]).toMatchObject({
+      postmanSuiteId: suite._id,
+      collectionVersion: 1,
+      environmentVersion: 1,
+    });
+  });
+
+  test('rejects retrying a run that has no postmanSuiteId', async () => {
+    projectsClient.getProject.mockResolvedValue({ _id: 'proj-1' });
+    s3Client.uploadObject.mockResolvedValue('http://minio.local/bucket/x.json');
+
+    const manualRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      tool: 'newman',
+      triggeredBy: 'user-1',
+      rawReportUrl: 'http://minio.local/bucket/manual.json',
+      summary: sampleSummary,
+      testResults: [],
+    });
+
+    const res = await request(app)
+      .post(`/execution/automation-runs/${manualRun._id}/retry`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+
+    expect(res.status).toBe(400);
+    expect(postmanRunner.runSuite).not.toHaveBeenCalled();
+  });
+
+  test('returns 404 for a non-existent automation run', async () => {
+    const res = await request(app)
+      .post('/execution/automation-runs/64b6f7e2f1a2b3c4d5e6f7a8/retry')
+      .set('Authorization', `Bearer ${qaToken()}`);
+    expect(res.status).toBe(404);
+  });
+
+  test('rejects when the Suite is no longer active', async () => {
+    const suite = await createSuiteAtVersion2();
+    await PostmanSuite.findByIdAndUpdate(suite._id, { isActive: false });
+    const originalRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      tool: 'newman',
+      triggeredBy: 'scheduler',
+      postmanSuiteId: suite._id,
+      triggerType: 'scheduled',
+      collectionVersion: 2,
+      rawReportUrl: 'http://minio.local/bucket/original-run.json',
+      summary: sampleSummary,
+      testResults: sampleTestResults,
+    });
+
+    const res = await request(app)
+      .post(`/execution/automation-runs/${originalRun._id}/retry`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects with 409 when the Suite is already running', async () => {
+    const suite = await createSuiteAtVersion2();
+    const originalRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      tool: 'newman',
+      triggeredBy: 'scheduler',
+      postmanSuiteId: suite._id,
+      triggerType: 'scheduled',
+      collectionVersion: 2,
+      environmentVersion: 2,
+      rawReportUrl: 'http://minio.local/bucket/original-run.json',
+      summary: sampleSummary,
+      testResults: sampleTestResults,
+    });
+    postmanRunner.isSuiteRunning.mockReturnValue(true);
+
+    const res = await request(app)
+      .post(`/execution/automation-runs/${originalRun._id}/retry`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+
+    expect(res.status).toBe(409);
+    expect(postmanRunner.runSuite).not.toHaveBeenCalled();
+  });
+
+  test('rejects with 409 when the original collection version is no longer available', async () => {
+    const suite = await createSuiteAtVersion2();
+    // Points at a version that was never recorded (simulates the version
+    // history having been pruned/lost out of band).
+    const originalRun = await persistAutomationRun({
+      projectId: 'proj-1',
+      tool: 'newman',
+      triggeredBy: 'scheduler',
+      postmanSuiteId: suite._id,
+      triggerType: 'scheduled',
+      collectionVersion: 99,
+      rawReportUrl: 'http://minio.local/bucket/original-run.json',
+      summary: sampleSummary,
+      testResults: sampleTestResults,
+    });
+    postmanRunner.isSuiteRunning.mockReturnValue(false);
+
+    const res = await request(app)
+      .post(`/execution/automation-runs/${originalRun._id}/retry`)
+      .set('Authorization', `Bearer ${qaToken()}`);
+
+    expect(res.status).toBe(409);
+    expect(postmanRunner.runSuite).not.toHaveBeenCalled();
   });
 });

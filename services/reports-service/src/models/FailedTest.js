@@ -11,7 +11,15 @@ const linkedDefectSchema = new mongoose.Schema(
 
 const failedTestSchema = new mongoose.Schema(
   {
-    cycleId: { type: String, required: true, index: true },
+    // Etapa 5 (docs/postman-runner/etapa-5-sistema-de-reportes.md): exactly
+    // one of cycleId/postmanSuiteId is set, never both — a manual/Allure/
+    // uploaded-Newman failure is attributed to the cycle it ran in, while a
+    // live Postman Suite execution normally has no cycleId at all and is
+    // attributed to its Suite instead. Neither is `required` at the schema
+    // level since which one applies is a per-document decision the handler
+    // makes, not something a fixed schema can enforce.
+    cycleId: { type: String, default: null, index: true },
+    postmanSuiteId: { type: String, default: null, index: true },
     projectId: { type: String, required: true, index: true },
     origin: { type: String, enum: ['manual', 'allure', 'newman'], required: true },
     // executionId (manual) or automationTestResultId (allure/newman) — the

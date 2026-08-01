@@ -1,0 +1,25 @@
+.spinner {
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid var(--color-border-subtle, var(--color-border));
+  border-top-color: var(--color-primary);
+  animation: spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}

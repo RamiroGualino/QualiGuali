@@ -16,6 +16,7 @@ router.post('/automation-runs', upload.array('files', 500), controller.createAut
 router.get('/automation-runs', controller.listAutomationRuns);
 router.get('/automation-runs/:id', controller.getAutomationRun);
 router.get('/automation-runs/:id/tests', controller.listAutomationRunTests);
+router.post('/automation-runs/:id/retry', controller.retryAutomationRun);
 router.get('/automation-test-results/:id', controller.getAutomationTestResult);
 
 module.exports = router;

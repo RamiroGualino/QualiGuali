@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reporte de ejecución — Postman Suite</title>
+    <style>
+      :root {
+        --brand: #ff6c37;
+        --brand-dark: #e0551f;
+        --bg: #f3f4f7;
+        --surface: #ffffff;
+        --text: #1a1d29;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --sidebar-bg: #171923;
+        --sidebar-text: #cbd2e0;
+        --sidebar-muted: #6b7280;
+        --pass-bg: #e7f7ed;
+        --pass-text: #15803d;
+        --pass-strong: #16a34a;
+        --fail-bg: #fdeaea;
+        --fail-text: #b91c1c;
+        --fail-strong: #dc2626;
+        --broken-bg: #fdf1e0;
+        --broken-text: #b45309;
+        --skip-bg: #eef0f4;
+        --skip-text: #4b5563;
+        --code-bg: #1e2130;
+        --code-text: #d4d8e4;
+        --radius: 10px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text);
+        margin: 0;
+        background: var(--bg);
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* ---------- Sidebar ---------- */
+      aside {
+        width: 280px;
+        flex: none;
+        background: var(--sidebar-bg);
+        color: var(--sidebar-text);
+        padding: 1.5rem 1.25rem;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 1.5rem;
+      }
+      .brand .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--brand);
+        box-shadow: 0 0 0 3px rgba(255, 108, 55, 0.25);
+      }
+      .brand span {
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        font-size: 0.95rem;
+        color: #fff;
+      }
+      .suite-name {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #fff;
+        margin: 0 0 0.15rem;
+      }
+      .suite-meta {
+        font-size: 0.75rem;
+        color: var(--sidebar-muted);
+        margin: 0 0 1.5rem;
+        line-height: 1.5;
+      }
+      .nav-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--sidebar-muted);
+        margin: 0 0 0.6rem;
+      }
+      .nav-list {
+        list-style: none;
+        margin: 0 0 1.5rem;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.45rem 0.55rem;
+        border-radius: 7px;
+        text-decoration: none;
+        color: var(--sidebar-text);
+        font-size: 0.82rem;
+        transition: background 0.12s ease;
+      }
+      .nav-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .nav-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .nav-dot.passed {
+        background: var(--pass-strong);
+      }
+      .nav-dot.failed {
+        background: var(--fail-strong);
+      }
+      .nav-dot.broken {
+        background: #d97706;
+      }
+      .nav-dot.skipped {
+        background: #9ca3af;
+      }
+      .nav-item .nav-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .nav-method {
+        font-size: 0.62rem;
+        font-weight: 700;
+        padding: 0.05rem 0.35rem;
+        border-radius: 4px;
+        flex: none;
+      }
+      .env-box {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 0.75rem 0.85rem;
+        font-size: 0.75rem;
+        color: var(--sidebar-muted);
+      }
+      .env-box b {
+        color: #fff;
+        font-weight: 600;
+      }
+
+      /* ---------- Main ---------- */
+      main {
+        flex: 1;
+        padding: 2rem 2.5rem 4rem;
+        max-width: 980px;
+      }
+
+      .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1.5rem;
+        margin-bottom: 1.75rem;
+      }
+      .page-header h1 {
+        font-size: 1.5rem;
+        margin: 0 0 0.25rem;
+      }
+      .page-header .subtitle {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin: 0;
+      }
+      .export-badge {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.35rem 0.9rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      /* KPI cards */
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.85rem;
+        margin-bottom: 1rem;
+      }
+      .kpi {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--muted);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        width: 100%;
+        transition:
+          box-shadow 0.12s ease,
+          transform 0.12s ease;
+      }
+      .kpi:hover {
+        box-shadow: 0 2px 10px rgba(17, 24, 39, 0.08);
+        transform: translateY(-1px);
+      }
+      .kpi.active {
+        box-shadow: 0 0 0 2px var(--brand) inset;
+      }
+      .kpi.total {
+        border-top-color: var(--brand);
+      }
+      .kpi.passed {
+        border-top-color: var(--pass-strong);
+      }
+      .kpi.failed {
+        border-top-color: var(--fail-strong);
+      }
+      .kpi.broken {
+        border-top-color: #d97706;
+      }
+      .kpi.skipped {
+        border-top-color: #9ca3af;
+      }
+      .kpi strong {
+        display: block;
+        font-size: 1.65rem;
+        line-height: 1.15;
+      }
+      .kpi span {
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .filter-status {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin: 0 0 1rem;
+      }
+      .filter-status button {
+        border: none;
+        background: none;
+        color: var(--brand-dark);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0;
+        text-decoration: underline;
+      }
+      .test.hidden-by-filter,
+      .nav-item.hidden-by-filter {
+        display: none;
+      }
+
+      /* Progress bar */
+      .progress-wrap {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 2rem;
+      }
+      .progress-top {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+      }
+      .progress-bar {
+        display: flex;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--skip-bg);
+      }
+      .progress-seg.passed {
+        background: var(--pass-strong);
+      }
+      .progress-seg.failed {
+        background: var(--fail-strong);
+      }
+      .progress-seg.broken {
+        background: #d97706;
+      }
+      .progress-seg.skipped {
+        background: #9ca3af;
+      }
+
+      /* Test cards */
+      .test {
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        margin-bottom: 1.1rem;
+        overflow: hidden;
+        scroll-margin-top: 1.5rem;
+      }
+      .test-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .method-badge {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 0.22rem 0.5rem;
+        border-radius: 5px;
+        letter-spacing: 0.02em;
+        flex: none;
+      }
+      .method-GET {
+        background: #e7f3ff;
+        color: #1d4ed8;
+      }
+      .method-POST {
+        background: #e7f7ed;
+        color: #15803d;
+      }
+      .method-PATCH {
+        background: #f3e8ff;
+        color: #7c3aed;
+      }
+      .method-PUT {
+        background: #fef3c7;
+        color: #b45309;
+      }
+      .method-DELETE {
+        background: #fdeaea;
+        color: #b91c1c;
+      }
+
+      .test-title {
+        flex: 1;
+        min-width: 0;
+      }
+      .test-title h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      .request-line {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin: 0.15rem 0 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .status-pill {
+        border-radius: 999px;
+        padding: 0.28rem 0.75rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        white-space: nowrap;
+        flex: none;
+      }
+      .status-pill.passed {
+        background: var(--pass-bg);
+        color: var(--pass-text);
+      }
+      .status-pill.failed {
+        background: var(--fail-bg);
+        color: var(--fail-text);
+      }
+      .status-pill.broken {
+        background: var(--broken-bg);
+        color: var(--broken-text);
+      }
+      .status-pill.skipped {
+        background: var(--skip-bg);
+        color: var(--skip-text);
+      }
+      .http-code {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--muted);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.18rem 0.5rem;
+        flex: none;
+      }
+
+      .test-body {
+        padding: 0.25rem 1.25rem 1.1rem;
+      }
+
+      details.data-block {
+        border-top: 1px dashed var(--border);
+        padding: 0.6rem 0;
+      }
+      details.data-block:first-of-type {
+        border-top: none;
+      }
+      details.data-block > summary {
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-weight: 600;
+        user-select: none;
+      }
+      details.data-block > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.data-block > summary::before {
+        content: '▸';
+        font-size: 0.7rem;
+        color: var(--brand);
+        transition: transform 0.12s ease;
+      }
+      details.data-block[open] > summary::before {
+        transform: rotate(90deg);
+      }
+      details.data-block pre {
+        margin: 0.55rem 0 0.15rem;
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        overflow-x: auto;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+      }
+      .json-key {
+        color: #7dd3fc;
+      }
+      .json-string {
+        color: #86efac;
+      }
+      .json-number {
+        color: #fca5a5;
+      }
+      .json-boolean {
+        color: #fcd34d;
+      }
+      .json-null {
+        color: #9ca3af;
+      }
+
+      .error-box {
+        background: var(--fail-bg);
+        color: var(--fail-text);
+        border-radius: 8px;
+        padding: 0.6rem 0.85rem;
+        font-size: 0.82rem;
+        margin: 0.5rem 0 0.75rem;
+      }
+
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.75rem;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+      }
+
+      @media (max-width: 860px) {
+        body {
+          flex-direction: column;
+        }
+        aside {
+          position: static;
+          width: 100%;
+          height: auto;
+        }
+        .kpis {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <div class="brand"><span class="dot"></span><span>QUALIGUALI · POSTMAN RUNNER</span></div>
+      <p class="suite-name" id="sidebar-suite-name">—</p>
+      <p class="suite-meta" id="sidebar-meta">—</p>
+
+      <p class="nav-label">Requests ejecutados</p>
+      <ul class="nav-list" id="nav-list"></ul>
+
+      <p class="nav-label">Entorno</p>
+      <div class="env-box" id="env-box">—</div>
+    </aside>
+
+    <main>
+      <div class="page-header">
+        <div>
+          <h1 id="main-title">Reporte de ejecución</h1>
+          <p class="subtitle" id="main-subtitle">—</p>
+        </div>
+        <span class="export-badge">Exportado como HTML · QualiGuali</span>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="progress-wrap">
+        <div class="progress-top">
+          <span>Resultado general</span>
+          <span id="progress-label">—</span>
+        </div>
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+
+      <p class="filter-status" id="filter-status">—</p>
+
+      <div id="tests-container"></div>
+
+      <footer>
+        <span id="footer-left">QualiGuali</span>
+        <span id="footer-right">—</span>
+      </footer>
+    </main>
+
+    <script>
+      // ---------------------------------------------------------------------------
+      // Datos de muestra — en la app real esto viene de GET /automation-runs/:id
+      // + GET /automation-runs/:id/tests (mismo shape de AutomationRun /
+      // AutomationTestResult descripto en docs/postman-runner/etapa-4 y etapa-5).
+      // Se deja como objeto JS separado del render para que este mismo archivo sea
+      // la base del "template" que se implementaría en reportPdf.js / un
+      // reportHtml.js nuevo del lado del frontend.
+      // ---------------------------------------------------------------------------
+      const REPORT_DATA = {
+        run: {
+          suiteName: 'Suite API — Gestión de Proyectos',
+          projectName: 'QualiGuali — Proyecto de prueba',
+          environmentName: 'Local (docker-compose)',
+          executedAt: '2026-07-31T13:32:10.000Z',
+          executedAtLabel: '31/7/2026, 10:32:10 a.m.',
+          durationMs: 1340,
+          triggerType: 'manual',
+          total: 6,
+          passed: 3,
+          failed: 1,
+          broken: 1,
+          skipped: 1,
+        },
+        tests: [
+          {
+            testName: 'Crear proyecto',
+            method: 'POST',
+            url: 'http://localhost:4001/projects',
+            status: 'passed',
+            responseStatus: 201,
+            requestHeaders: [
+              { key: 'Content-Type', value: 'application/json' },
+              {
+                key: 'Authorization',
+                value:
+                  'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…pFFlqMwHz9CeFkZu2US_woiPXe4yDG2RZYOaMmNcXwU',
+              },
+              { key: 'User-Agent', value: 'PostmanRuntime/7.39.1' },
+            ],
+            requestBody: {
+              name: 'Proyecto de prueba 1785504730224',
+              description: 'Creado por la Suite de Postman',
+            },
+            responseHeaders: [
+              { key: 'X-Powered-By', value: 'Express' },
+              { key: 'Content-Type', value: 'application/json; charset=utf-8' },
+              { key: 'Content-Length', value: '200' },
+            ],
+            responseBody: {
+              project: {
+                name: 'Proyecto de prueba 1785504730224',
+                description: 'Creado por la Suite de Postman',
+                status: 'active',
+                _id: '6a6ca3da24a746df9a8bacd2',
+                createdAt: '2026-07-31T13:32:10.232Z',
+                __v: 0,
+              },
+            },
+            errorMessage: null,
+          },
+          {
+            testName: 'Editar proyecto',
+            method: 'PATCH',
+            url: 'http://localhost:4001/projects/6a6ca3da24a746df9a8bacd2',
+            status: 'passed',
+            responseStatus: 200,
+            requestHeaders: [
+              { key: 'Content-Type', value: 'application/json' },
+              {
+                key: 'Authorization',
+                value:
+                  'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…pFFlqMwHz9CeFkZu2US_woiPXe4yDG2RZYOaMmNcXwU',
+              },
+            ],
+            requestBody: {
+              name: 'Proyecto editado por la Suite',
+              description: 'Editado por la Suite de Postman',
+            },
+            responseHeaders: [
+              { key: 'X-Powered-By', value: 'Express' },
+              { key: 'Content-Type', value: 'application/json; charset=utf-8' },
+              { key: 'Content-Length', value: '198' },
+            ],
+            responseBody: {
+              project: {
+                _id: '6a6ca3da24a746df9a8bacd2',
+                name: 'Proyecto editado por la Suite',
+                description: 'Editado por la Suite de Postman',
+                status: 'active',
+                createdAt: '2026-07-31T13:32:10.232Z',
+                __v: 0,
+              },
+            },
+            errorMessage: null,
+          },
+          {
+            testName: 'Eliminar proyecto',
+            method: 'DELETE',
+            url: 'http://localhost:4001/projects/6a6ca3da24a746df9a8bacd2',
+            status: 'passed',
+            responseStatus: 204,
+            requestHeaders: [
+              {
+                key: 'Authorization',
+                value:
+                  'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…pFFlqMwHz9CeFkZu2US_woiPXe4yDG2RZYOaMmNcXwU',
+              },
+            ],
+            requestBody: null,
+            responseHeaders: [
+              { key: 'X-Powered-By', value: 'Express' },
+              { key: 'Connection', value: 'keep-alive' },
+            ],
+            responseBody: null,
+            errorMessage: null,
+          },
+          {
+            testName: 'Listar proyectos (ejemplo de falla)',
+            method: 'GET',
+            url: 'http://localhost:4001/projects?page=1',
+            status: 'failed',
+            responseStatus: 200,
+            requestHeaders: [
+              {
+                key: 'Authorization',
+                value:
+                  'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…pFFlqMwHz9CeFkZu2US_woiPXe4yDG2RZYOaMmNcXwU',
+              },
+            ],
+            requestBody: null,
+            responseHeaders: [
+              { key: 'X-Powered-By', value: 'Express' },
+              { key: 'Content-Type', value: 'application/json; charset=utf-8' },
+            ],
+            responseBody: { projects: [], total: 0 },
+            errorMessage:
+              'Assertion "el listado no debería estar vacío" falló: se esperaban 3 proyectos y se recibieron 0.',
+          },
+          {
+            testName: 'Obtener métricas del proyecto (ejemplo roto)',
+            method: 'GET',
+            url: 'http://localhost:4001/projects/6a6ca3da24a746df9a8bacd2/metrics',
+            status: 'broken',
+            responseStatus: null,
+            requestHeaders: [
+              {
+                key: 'Authorization',
+                value:
+                  'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…pFFlqMwHz9CeFkZu2US_woiPXe4yDG2RZYOaMmNcXwU',
+              },
+            ],
+            requestBody: null,
+            responseHeaders: null,
+            responseBody: null,
+            errorMessage:
+              'Error de conexión (ECONNREFUSED) — el request nunca llegó a completarse, no hubo respuesta que evaluar.',
+          },
+          {
+            testName: 'Validar permisos de administrador (ejemplo omitido)',
+            method: 'GET',
+            url: 'http://localhost:4001/projects/6a6ca3da24a746df9a8bacd2/permissions',
+            status: 'skipped',
+            responseStatus: null,
+            requestHeaders: null,
+            requestBody: null,
+            responseHeaders: null,
+            responseBody: null,
+            errorMessage: null,
+          },
+        ],
+      };
+
+      // ---------------------------------------------------------------------------
+      // Render (vanilla JS, sin dependencias — igual filosofía que jspdf hoy:
+      // el .html resultante tiene que abrirse standalone, sin internet).
+      // ---------------------------------------------------------------------------
+      function escapeHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function syntaxHighlight(value) {
+        if (value === null || value === undefined) return '<span class="json-null">null</span>';
+        const json = JSON.stringify(value, null, 2);
+        const escaped = escapeHtml(json);
+        return escaped.replace(
+          /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+          (match) => {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+              cls = /:$/.test(match) ? 'json-key' : 'json-string';
+            } else if (/true|false/.test(match)) {
+              cls = 'json-boolean';
+            } else if (/null/.test(match)) {
+              cls = 'json-null';
+            }
+            return `<span class="${cls}">${match}</span>`;
+          },
+        );
+      }
+
+      function fmtDuration(ms) {
+        if (ms == null) return '—';
+        return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)} s`;
+      }
+
+      const STATUS_LABELS = {
+        all: 'Todos',
+        passed: 'Pasaron',
+        failed: 'Fallaron',
+        broken: 'Rotos',
+        skipped: 'Omitidos',
+      };
+
+      const STATUS_PILL_LABELS = {
+        passed: 'Pasó',
+        failed: 'Falló',
+        broken: 'Roto',
+        skipped: 'Omitido',
+      };
+
+      let activeFilter = 'all';
+
+      function buildKpis(run) {
+        const items = [
+          { label: 'Total', value: run.total, cls: 'total', filter: 'all' },
+          { label: 'Pasaron', value: run.passed, cls: 'passed', filter: 'passed' },
+          { label: 'Fallaron', value: run.failed, cls: 'failed', filter: 'failed' },
+          { label: 'Rotos', value: run.broken, cls: 'broken', filter: 'broken' },
+          { label: 'Omitidos', value: run.skipped, cls: 'skipped', filter: 'skipped' },
+        ];
+        document.getElementById('kpis').innerHTML = items
+          .map(
+            (
+              it,
+            ) => `<button type="button" class="kpi ${it.cls}${it.filter === activeFilter ? ' active' : ''}"
+        data-filter="${it.filter}" onclick="applyFilter('${it.filter}')">
+        <strong>${it.value}</strong><span>${it.label}</span>
+      </button>`,
+          )
+          .join('');
+      }
+
+      // Filtra tanto las tarjetas de request como la navegación del sidebar por
+      // estado — clickeando de nuevo "Total" (o el mismo filtro activo) se vuelve
+      // a mostrar todo. Sin dependencias: toggles de display vía clases CSS.
+      function applyFilter(status) {
+        activeFilter = status;
+
+        document.querySelectorAll('.kpi[data-filter]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.filter === status);
+        });
+
+        const sections = Array.from(document.querySelectorAll('#tests-container .test'));
+        let visible = 0;
+        sections.forEach((section) => {
+          const match = status === 'all' || section.dataset.status === status;
+          section.classList.toggle('hidden-by-filter', !match);
+          if (match) visible += 1;
+        });
+
+        document.querySelectorAll('#nav-list .nav-item').forEach((item) => {
+          const match = status === 'all' || item.dataset.status === status;
+          item.classList.toggle('hidden-by-filter', !match);
+        });
+
+        const label = document.getElementById('filter-status');
+        if (status === 'all') {
+          label.innerHTML = `Mostrando los ${sections.length} requests.`;
+        } else {
+          label.innerHTML = `Mostrando ${visible} de ${sections.length} · ${STATUS_LABELS[status]}. <button type="button" onclick="applyFilter('all')">Ver todos</button>`;
+        }
+      }
+
+      function buildProgress(run) {
+        const total = run.total || 1;
+        const pct = (n) => `${((n / total) * 100).toFixed(2)}%`;
+        const bar = document.getElementById('progress-bar');
+        bar.innerHTML = `
+    <div class="progress-seg passed" style="width:${pct(run.passed)}"></div>
+    <div class="progress-seg failed" style="width:${pct(run.failed)}"></div>
+    <div class="progress-seg broken" style="width:${pct(run.broken)}"></div>
+    <div class="progress-seg skipped" style="width:${pct(run.skipped)}"></div>
+  `;
+        const passRate = run.total ? Math.round((run.passed / run.total) * 100) : 0;
+        document.getElementById('progress-label').textContent =
+          `${passRate}% de éxito · duración total ${fmtDuration(run.durationMs)}`;
+      }
+
+      function methodClass(method) {
+        return `method-${(method || 'GET').toUpperCase()}`;
+      }
+
+      function buildTestCard(test, index) {
+        const anchor = `test-${index}`;
+        const errorBlock = test.errorMessage
+          ? `<div class="error-box">${escapeHtml(test.errorMessage)}</div>`
+          : '';
+
+        const block = (label, content) =>
+          content == null || content === undefined
+            ? ''
+            : `<details class="data-block">
+          <summary>${label}</summary>
+          <pre>${syntaxHighlight(content)}</pre>
+        </details>`;
+
+        return `
+    <section class="test" id="${anchor}" data-status="${test.status}">
+      <div class="test-header">
+        <span class="method-badge ${methodClass(test.method)}">${test.method}</span>
+        <div class="test-title">
+          <h3>${escapeHtml(test.testName)}</h3>
+          <p class="request-line">${escapeHtml(test.url)}</p>
+        </div>
+        <span class="http-code">${test.responseStatus ?? '—'}</span>
+        <span class="status-pill ${test.status}">${STATUS_PILL_LABELS[test.status] || test.status}</span>
+      </div>
+      <div class="test-body">
+        ${errorBlock}
+        ${block('Headers de la request', test.requestHeaders)}
+        ${block('Body de la request', test.requestBody)}
+        ${block('Headers de la respuesta', test.responseHeaders)}
+        ${block('Body de la respuesta', test.responseBody)}
+      </div>
+    </section>
+  `;
+      }
+
+      function buildNav(tests) {
+        const list = tests
+          .map((test, index) => {
+            return `
+        <li>
+          <a class="nav-item" href="#test-${index}" data-status="${test.status}">
+            <span class="nav-dot ${test.status}"></span>
+            <span class="nav-method method-badge ${methodClass(test.method)}">${test.method}</span>
+            <span class="nav-name">${escapeHtml(test.testName)}</span>
+          </a>
+        </li>`;
+          })
+          .join('');
+        document.getElementById('nav-list').innerHTML = list;
+      }
+
+      function render(data) {
+        const { run, tests } = data;
+
+        document.title = `Reporte — ${run.suiteName}`;
+        document.getElementById('sidebar-suite-name').textContent = run.suiteName;
+        document.getElementById('sidebar-meta').textContent =
+          `${run.projectName} · ${run.executedAtLabel}`;
+        document.getElementById('env-box').innerHTML = `<b>${escapeHtml(run.environmentName)}</b>`;
+
+        document.getElementById('main-title').textContent =
+          `Reporte de ejecución — ${run.suiteName}`;
+        document.getElementById('main-subtitle').textContent =
+          `Generado el ${run.executedAtLabel} · disparo ${run.triggerType === 'manual' ? 'manual' : run.triggerType}`;
+
+        buildKpis(run);
+        buildProgress(run);
+        buildNav(tests);
+
+        document.getElementById('tests-container').innerHTML = tests
+          .map((t, i) => buildTestCard(t, i))
+          .join('');
+
+        applyFilter('all');
+
+        document.getElementById('footer-left').textContent =
+          `QualiGuali · Ejecutor de Colecciones Postman`;
+        document.getElementById('footer-right').textContent =
+          `${tests.length} request(s) · ${fmtDuration(run.durationMs)}`;
+      }
+
+      render(REPORT_DATA);
+    </script>
+  </body>
+</html>

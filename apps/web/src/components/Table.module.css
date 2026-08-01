@@ -53,3 +53,15 @@
 .clickableRow:hover td:first-child {
   box-shadow: inset 3px 0 0 var(--color-primary);
 }
+
+/* Permanent (not hover-only) left edge — a "fail-fast" scan cue so a row
+   with failures reads as a problem before any cell text is read. Same
+   box-shadow-on-first-cell technique as clickableRow's hover state above,
+   just always-on instead of conditional on :hover. */
+.rowFailed td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-fail);
+}
+
+.rowPassed td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-pass);
+}

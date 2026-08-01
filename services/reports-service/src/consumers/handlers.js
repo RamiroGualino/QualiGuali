@@ -7,6 +7,10 @@ const executionClient = require('../clients/executionClient');
 const qaCoreClient = require('../clients/qaCoreClient');
 const { computeManualDelta } = require('./manualDelta');
 const { resolveProjectIdForCycle, resolveCycleIdForDefect } = require('./cycleResolution');
+const {
+  shouldNotify,
+  createAutomationRunFailedNotification,
+} = require('../services/notifications.service');
 const { logger } = require('@qualiguali/shared');
 
 async function handleExecutionUpdated(payload) {
@@ -130,34 +134,13 @@ async function handleCycleFinished(payload) {
   await TrendPoint.insertMany(points);
 }
 
-async function handleAutomationRunIngested(payload) {
-  const { automationRunId, projectId, cycleId, tool, summary } = payload;
-
-  await AutomationRunIndex.findOneAndUpdate(
-    { _id: automationRunId },
-    { $set: { cycleId: cycleId || null, projectId } },
-    { upsert: true },
-  );
-
-  if (!cycleId) {
-    // Not tied to any cycle — nothing to attribute in the cycle dashboard.
-    return;
-  }
-
-  const inc =
-    tool === 'allure'
-      ? { totalAllure: summary.total, passedAllure: summary.passed, failedAllure: summary.failed }
-      : { totalNewman: summary.total, passedNewman: summary.passed, failedNewman: summary.failed };
-
-  await CycleReport.findOneAndUpdate(
-    { cycleId },
-    { $set: { projectId }, $inc: inc },
-    { upsert: true, setDefaultsOnInsert: true },
-  );
-
-  // Individual failing tests aren't in the event (only the aggregate
-  // summary is) — fetch them once now, at consume time, along with the
-  // run's rawReportUrl, so the failures drill-down has real data to show.
+// Individual failing tests aren't in the event (only the aggregate summary
+// is) — fetch them once now, at consume time, along with the run's
+// rawReportUrl, so the failures drill-down has real data to show. Shared by
+// both the cycle-attributed branch and the Etapa 5 postmanSuiteId-attributed
+// branch below: same fetch, same upsert, only whichever of
+// `cycleId`/`postmanSuiteId` applies differs in the $set.
+async function upsertFailingTests({ automationRunId, projectId, tool, cycleId, postmanSuiteId }) {
   try {
     const [run, testResults] = await Promise.all([
       executionClient.getAutomationRun(automationRunId),
@@ -172,7 +155,8 @@ async function handleAutomationRunIngested(payload) {
           { origin: tool, sourceId: testResult._id },
           {
             $set: {
-              cycleId,
+              cycleId: cycleId || null,
+              postmanSuiteId: postmanSuiteId || null,
               projectId,
               origin: tool,
               sourceId: testResult._id,
@@ -193,6 +177,89 @@ async function handleAutomationRunIngested(payload) {
       error: err.message,
     });
   }
+}
+
+// Etapa 5: a live Postman Suite run has no cycleId to attribute a
+// CycleReport/TrendPoint to — there's no "cycle" it belongs to, and no
+// "Suite finished" event equivalent to handleCycleFinished's cycle-close
+// trigger either. Unlike a cycle (which accumulates many executions before
+// closing), one AutomationRunIngested *is* already a complete, self-
+// contained execution, so it's the point in time a trend point can
+// meaningfully represent — one TrendPoint per run, not one per Suite ever.
+async function handlePostmanSuiteRunIngested({
+  automationRunId,
+  projectId,
+  postmanSuiteId,
+  tool,
+  summary,
+  executedAt,
+}) {
+  await upsertFailingTests({ automationRunId, projectId, tool, postmanSuiteId });
+
+  if (summary.total > 0) {
+    await TrendPoint.create({
+      projectId,
+      postmanSuiteId,
+      date: executedAt ? new Date(executedAt) : new Date(),
+      origin: tool,
+      passRate: summary.passed / summary.total,
+    });
+  }
+}
+
+async function handleAutomationRunIngested(payload) {
+  const { automationRunId, projectId, cycleId, postmanSuiteId, tool, summary, executedAt } =
+    payload;
+
+  await AutomationRunIndex.findOneAndUpdate(
+    { _id: automationRunId },
+    { $set: { cycleId: cycleId || null, projectId } },
+    { upsert: true },
+  );
+
+  // Etapa 7 (docs/postman-runner/etapa-7-sistema-de-alertas.md): applies to
+  // every run regardless of which branch below it takes (cycleId,
+  // postmanSuiteId, or neither) — a manual upload with failures deserves an
+  // alert just as much as a live Suite run does, so this sits before the
+  // cycleId/postmanSuiteId branching, not inside either branch.
+  if (shouldNotify(summary)) {
+    await createAutomationRunFailedNotification({
+      automationRunId,
+      projectId,
+      cycleId,
+      postmanSuiteId,
+      summary,
+    });
+  }
+
+  if (!cycleId) {
+    if (postmanSuiteId) {
+      await handlePostmanSuiteRunIngested({
+        automationRunId,
+        projectId,
+        postmanSuiteId,
+        tool,
+        summary,
+        executedAt,
+      });
+    }
+    // Neither cycleId nor postmanSuiteId — nothing to attribute anywhere
+    // beyond the AutomationRunIndex upsert above.
+    return;
+  }
+
+  const inc =
+    tool === 'allure'
+      ? { totalAllure: summary.total, passedAllure: summary.passed, failedAllure: summary.failed }
+      : { totalNewman: summary.total, passedNewman: summary.passed, failedNewman: summary.failed };
+
+  await CycleReport.findOneAndUpdate(
+    { cycleId },
+    { $set: { projectId }, $inc: inc },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+
+  await upsertFailingTests({ automationRunId, projectId, tool, cycleId });
 }
 
 function computeOpenDefectsLinked(linkedDefects) {

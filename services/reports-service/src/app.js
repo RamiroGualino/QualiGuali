@@ -2,6 +2,7 @@ const express = require('express');
 const { notFoundHandler, createErrorHandler, createCors, logger } = require('@qualiguali/shared');
 const reportsRoutes = require('./routes/reports.routes');
 const internalEventsRoutes = require('./routes/internalEvents.routes');
+const notificationsRoutes = require('./routes/notifications.routes');
 
 function createApp() {
   const app = express();
@@ -12,6 +13,7 @@ function createApp() {
   app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
   app.use('/reports', reportsRoutes);
   app.use('/internal', internalEventsRoutes);
+  app.use('/notifications', notificationsRoutes);
 
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));

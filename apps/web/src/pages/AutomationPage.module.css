@@ -4,6 +4,14 @@
   gap: 0.75rem;
 }
 
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
 .fileList {
   font-size: 0.85rem;
   color: var(--color-text-secondary);

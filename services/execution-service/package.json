@@ -17,7 +17,9 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "mongoose": "^9.8.0",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "newman": "^6.2.1",
+    "node-cron": "^4.6.0"
   },
   "devDependencies": {
     "jest": "^30.4.2",

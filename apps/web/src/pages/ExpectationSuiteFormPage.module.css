@@ -1,0 +1,145 @@
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nameField {
+  max-width: 22rem;
+  flex: 1;
+  min-width: 12rem;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0;
+  max-width: 30rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fieldLabel {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.hint {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.fileBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-elevated);
+  font-size: 0.9rem;
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.row > * {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.pillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.columnPill {
+  font: inherit;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.columnPill:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.error {
+  color: var(--color-fail);
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+}
+
+/* Etapa 6.1 §6: dos columnas en desktop — el panel de alta (izquierda)
+   queda sticky mientras la lista (derecha) scrollea con su propio scroll,
+   sin scrollear toda la página. En viewport angosto cae a una columna. */
+.workArea {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.leftPanel {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+}
+
+.rightPanel {
+  max-height: 80vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+@media (max-width: 900px) {
+  .workArea {
+    grid-template-columns: 1fr;
+  }
+
+  .leftPanel {
+    position: static;
+  }
+
+  .rightPanel {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* Etapa 6.1 §7: fijo en la parte inferior del viewport, siempre alcanzable
+   sin scrollear hasta el final de la página. */
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding: 0.85rem 0;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}

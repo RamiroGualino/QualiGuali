@@ -32,6 +32,7 @@ const ICONS = {
   automation: '🤖',
   defects: '🐞',
   reports: '📈',
+  dataTesting: '✅',
   settings: '⚙️',
 };
 
@@ -145,6 +146,12 @@ export function Sidebar() {
       to: `/projects/${projectId}/reports`,
       label: t('nav.reports'),
       icon: ICONS.reports,
+    },
+    projectId && {
+      to: `/projects/${projectId}/data-testing/suites`,
+      label: t('nav.dataTesting'),
+      icon: ICONS.dataTesting,
+      forceActive: location.pathname.startsWith(`/projects/${projectId}/data-testing`),
     },
     { to: '/settings', label: t('nav.settings'), icon: ICONS.settings },
   ].filter(Boolean);

@@ -1,0 +1,109 @@
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+/* flex-wrap, no CSS Grid con columnas fijas: el ancho disponible acá no es
+   el del viewport sino el que le queda a la card dentro de .mainGrid (ver
+   ExpectationRunDetailPage.module.css) — un media query por viewport no se
+   entera de eso y termina recortando contenido en pantallas donde el
+   viewport es ancho pero esta columna en particular no lo es. */
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.summaryRow:hover {
+  background-color: var(--color-bg);
+}
+
+.mainInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 14rem;
+  min-width: 10rem;
+}
+
+.name {
+  font-weight: 700;
+}
+
+.description {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.paramsSummary {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-info);
+  background-color: color-mix(in srgb, var(--color-info) 12%, transparent);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+  min-width: 5rem;
+}
+
+.percentCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1 1 9rem;
+  min-width: 8rem;
+  max-width: 14rem;
+}
+
+.cellLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+}
+
+.chevron {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+}
+
+.detailTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+.explanationText {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+

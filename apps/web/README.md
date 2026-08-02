@@ -105,11 +105,21 @@ pnpm e2e         # Playwright — requiere el stack completo corriendo, ver abaj
   `customFields` correctamente), `Dropzone` (arrastrar-y-soltar y selección de archivo vía input
   oculto), dashboard de reportes (KPIs combinados con datos mockeados, mensaje de "sin reporte
   todavía", fallo con defecto vinculado).
-- **E2E** (`e2e/fullFlow.spec.js`, Playwright): login → crear proyecto → crear caso de prueba →
-  crear plan → crear ciclo desde el plan → marcar pass → ver el KPI combinado en el dashboard.
-  Corre contra el stack real (`docker-compose up` + `pnpm --filter web dev`), no contra mocks —
-  **no se pudo ejecutar en este sandbox** (no hay Docker disponible acá, mismo límite que en las
-  Partes 1-6), pero `npx playwright test --list` confirma que el archivo es válido.
+- **E2E** (Playwright, `e2e/`): corre contra el stack real, no contra mocks — no hace falta
+  Docker, alcanza con cada servicio backend corriendo directo (`node src/server.js`, o
+  `pnpm dev`) contra el mismo Mongo/`JWT_SECRET`, más `pnpm --filter web dev`.
+  - `fullFlow.spec.js`: login → crear proyecto → crear caso de prueba → crear plan → crear ciclo
+    desde el plan → marcar pass → ver el KPI combinado en el dashboard. **Actualmente roto**: el
+    paso "abrir espacio de proyecto" busca un botón por fila en `ProjectsPage` (`/abrir
+    espacio|open workspace/i`) que ya no existe — desde que `ProjectManagementPage.jsx` centralizó
+    "abrir/cambiar de proyecto" en el `ProjectSwitcher` del header, entrar a un proyecto recién
+    creado es elegirlo ahí, no una acción de fila. Confirmado corriéndolo (no sólo inferido leyendo
+    el código): falla siempre en ese mismo paso. Fuera de alcance arreglarlo acá (no es parte del
+    módulo Test de Datos) — queda para quien retome el módulo de Proyectos.
+  - `data-testing.spec.js` (docs/data-testing/etapa-10-e2e-playwright.md): login → crear proyecto
+    → Suite con las 3 expectativas (Tabla/Columna/Multicolumna) → Corrida con matching fuzzy
+    confirmado y una falla a propósito → PDF → historial. Corrido 3 veces seguidas contra el stack
+    real sin flakiness.
 
 ### Nota sobre Node 25 + Vitest/jsdom
 

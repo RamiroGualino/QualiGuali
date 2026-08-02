@@ -1,0 +1,59 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+/* 2 columnas en vez de una lista vertical larga con scroll interno: usa
+   mejor el ancho de la card, ocupa la mitad de alto, y evita el scroll que
+   obligaba a desplazarse para ver las últimas columnas de la lista. */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1rem;
+  row-gap: 0.5rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-primary-contrast);
+}
+
+.found {
+  background-color: var(--color-pass);
+}
+
+.missing {
+  background-color: var(--color-fail);
+}
+
+.footer {
+  margin: 0.75rem 0 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--color-border);
+  font-weight: 700;
+  font-size: 0.85rem;
+}

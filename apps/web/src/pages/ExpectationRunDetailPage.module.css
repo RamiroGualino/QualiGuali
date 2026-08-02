@@ -1,0 +1,73 @@
+.metaBar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.blockTitle {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.pdfError {
+  margin-top: 0.75rem;
+  color: var(--color-fail);
+  font-size: 0.85rem;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(0, 2.5fr);
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.resultsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.resultsHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.columnFilterSelect {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.resultsCount {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  white-space: nowrap;
+}
+
+.resultsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (max-width: 60rem) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}

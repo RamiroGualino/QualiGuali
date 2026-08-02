@@ -6,12 +6,17 @@ import styles from './KpiCard.module.css';
 // the top border color, independent of tone (which colors the number
 // itself) — a card can have an info-colored top border with a fail-colored
 // value, same as Kualitee's dashboard.
+//
+// children: opt-in extra content rendered below breakdown (e.g. a scrollable
+// list of rule names) — every existing call site passes nothing, so the
+// card looks exactly as before.
 export function KpiCard({
   label = '',
   value = '—',
   tone = 'default',
   accent = null,
   breakdown = [],
+  children = null,
 }) {
   return (
     <Card className={[styles.card, accent && styles[`accent-${accent}`]].filter(Boolean).join(' ')}>
@@ -27,6 +32,7 @@ export function KpiCard({
           ))}
         </span>
       )}
+      {children}
     </Card>
   );
 }

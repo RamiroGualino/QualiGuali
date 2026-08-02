@@ -14,6 +14,10 @@ import { DefectDetailPage } from './pages/DefectDetailPage';
 import { ReportsDashboardPage } from './pages/ReportsDashboardPage';
 import { ProjectHomePage } from './pages/ProjectHomePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ExpectationSuitesPage } from './pages/ExpectationSuitesPage';
+import { ExpectationSuiteFormPage } from './pages/ExpectationSuiteFormPage';
+import { ExpectationRunsPage } from './pages/ExpectationRunsPage';
+import { ExpectationRunDetailPage } from './pages/ExpectationRunDetailPage';
 
 export function AppRouter() {
   return (
@@ -56,6 +60,23 @@ export function AppRouter() {
           <Route path="/projects/:projectId/defects/:defectId" element={<DefectDetailPage />} />
           <Route path="/projects/:projectId/reports" element={<ReportsDashboardPage />} />
           <Route path="/projects/:projectId/reports/:cycleId" element={<ReportsDashboardPage />} />
+          <Route
+            path="/projects/:projectId/data-testing/suites"
+            element={<ExpectationSuitesPage />}
+          />
+          <Route
+            path="/projects/:projectId/data-testing/suites/new"
+            element={<ExpectationSuiteFormPage />}
+          />
+          <Route
+            path="/projects/:projectId/data-testing/suites/:id"
+            element={<ExpectationSuiteFormPage />}
+          />
+          <Route path="/projects/:projectId/data-testing/runs" element={<ExpectationRunsPage />} />
+          <Route
+            path="/projects/:projectId/data-testing/runs/:runId"
+            element={<ExpectationRunDetailPage />}
+          />
         </Route>
       </Route>
 

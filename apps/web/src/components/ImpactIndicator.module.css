@@ -1,0 +1,23 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.percent {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.warning {
+  color: var(--color-fail);
+}
+
+.detail {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.unknown {
+  color: var(--color-text-secondary);
+}

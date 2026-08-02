@@ -218,6 +218,27 @@ services:
       localstack:
         condition: service_started
 
+  data-testing-service:
+    build:
+      context: .
+      dockerfile: services/data-testing-service/Dockerfile
+    container_name: qualiguali-data-testing-service
+    restart: unless-stopped
+    ports:
+      - '4006:4006'
+    environment:
+      NODE_ENV: development
+      PORT: 4006
+      MONGODB_URI: mongodb://mongo:27017/qualiguali
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      PROJECTS_SERVICE_URL: http://projects-service:4001
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      projects-service:
+        condition: service_started
+
   web:
     build:
       context: .
@@ -236,6 +257,7 @@ services:
       VITE_EXECUTION_URL: http://localhost:4003
       VITE_DEFECTS_URL: http://localhost:4004
       VITE_REPORTS_URL: http://localhost:4005
+      VITE_DATA_TESTING_URL: http://localhost:4006
     depends_on:
       auth-service:
         condition: service_started
@@ -248,6 +270,8 @@ services:
       defects-service:
         condition: service_started
       reports-service:
+        condition: service_started
+      data-testing-service:
         condition: service_started
 
 volumes:

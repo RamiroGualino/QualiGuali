@@ -7,4 +7,5 @@ export const API_BASE_URLS = {
   execution: import.meta.env.VITE_EXECUTION_URL || 'http://localhost:4003',
   defects: import.meta.env.VITE_DEFECTS_URL || 'http://localhost:4004',
   reports: import.meta.env.VITE_REPORTS_URL || 'http://localhost:4005',
+  dataTesting: import.meta.env.VITE_DATA_TESTING_URL || 'http://localhost:4006',
 };
